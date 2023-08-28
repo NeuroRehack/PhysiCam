@@ -1,4 +1,4 @@
-# PhysioTrack
+# PhysiCam
 
 ## Project
 - Quantifying physical therapy with an easy-to-use, intuitive tool
