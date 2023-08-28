@@ -1,0 +1,482 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1914</width>
+    <height>1059</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QLabel" name="img_label">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>0</y>
+      <width>1280</width>
+      <height>720</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
+   <widget class="QLabel" name="framerate_label">
+    <property name="geometry">
+     <rect>
+      <x>1300</x>
+      <y>50</y>
+      <width>500</width>
+      <height>50</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>16</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>Frame Rate: 0.0 fps</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="start_pushButton">
+    <property name="geometry">
+     <rect>
+      <x>50</x>
+      <y>800</y>
+      <width>200</width>
+      <height>100</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>18</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
+   <widget class="QLabel" name="sessiontime_label">
+    <property name="geometry">
+     <rect>
+      <x>1300</x>
+      <y>100</y>
+      <width>500</width>
+      <height>50</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>16</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>Session Time: 0:00:00</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pause_pushButton">
+    <property name="geometry">
+     <rect>
+      <x>250</x>
+      <y>800</y>
+      <width>200</width>
+      <height>100</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>18</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="name_id_lineEdit">
+    <property name="geometry">
+     <rect>
+      <x>50</x>
+      <y>725</y>
+      <width>400</width>
+      <height>50</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>16</pointsize>
+     </font>
+    </property>
+    <property name="placeholderText">
+     <string>Patient Name or ID</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="source_comboBox">
+    <property name="geometry">
+     <rect>
+      <x>750</x>
+      <y>725</y>
+      <width>300</width>
+      <height>50</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>16</pointsize>
+     </font>
+    </property>
+   </widget>
+   <widget class="QLabel" name="source_label">
+    <property name="geometry">
+     <rect>
+      <x>600</x>
+      <y>725</y>
+      <width>150</width>
+      <height>50</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>16</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>Camera:</string>
+    </property>
+   </widget>
+   <widget class="QScrollArea" name="scrollArea">
+    <property name="geometry">
+     <rect>
+      <x>1300</x>
+      <y>180</y>
+      <width>600</width>
+      <height>725</height>
+     </rect>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>600</width>
+      <height>600</height>
+     </size>
+    </property>
+    <property name="widgetResizable">
+     <bool>true</bool>
+    </property>
+    <widget class="QWidget" name="scrollAreaWidgetContents">
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>0</y>
+       <width>581</width>
+       <height>1162</height>
+      </rect>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <widget class="QFrame" name="frame">
+        <property name="minimumSize">
+         <size>
+          <width>525</width>
+          <height>1150</height>
+         </size>
+        </property>
+        <property name="frameShape">
+         <enum>QFrame::StyledPanel</enum>
+        </property>
+        <property name="frameShadow">
+         <enum>QFrame::Raised</enum>
+        </property>
+        <widget class="QGroupBox" name="motion_tracking_groupBox">
+         <property name="geometry">
+          <rect>
+           <x>25</x>
+           <y>10</y>
+           <width>500</width>
+           <height>380</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>16</pointsize>
+          </font>
+         </property>
+         <property name="title">
+          <string>Motion Tracking</string>
+         </property>
+         <widget class="QLabel" name="sit_to_stand_count_label">
+          <property name="geometry">
+           <rect>
+            <x>25</x>
+            <y>80</y>
+            <width>450</width>
+            <height>70</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>24</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Sit to Stand: 0</string>
+          </property>
+         </widget>
+         <widget class="QLabel" name="right_arm_ext_count_label">
+          <property name="geometry">
+           <rect>
+            <x>25</x>
+            <y>160</y>
+            <width>450</width>
+            <height>70</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>24</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Right Arm Ext: 0</string>
+          </property>
+         </widget>
+         <widget class="QLabel" name="left_arm_ext_count_label">
+          <property name="geometry">
+           <rect>
+            <x>25</x>
+            <y>240</y>
+            <width>450</width>
+            <height>70</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>24</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Left Arm Ext: 0</string>
+          </property>
+         </widget>
+        </widget>
+        <widget class="QGroupBox" name="steps_tracking_groupBox">
+         <property name="geometry">
+          <rect>
+           <x>25</x>
+           <y>410</y>
+           <width>500</width>
+           <height>380</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>16</pointsize>
+          </font>
+         </property>
+         <property name="title">
+          <string>Steps Tracking</string>
+         </property>
+         <widget class="QLabel" name="right_steps_count_label">
+          <property name="geometry">
+           <rect>
+            <x>25</x>
+            <y>160</y>
+            <width>450</width>
+            <height>70</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>24</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Right Steps: 0</string>
+          </property>
+         </widget>
+         <widget class="QLabel" name="left_steps_count_label">
+          <property name="geometry">
+           <rect>
+            <x>25</x>
+            <y>240</y>
+            <width>450</width>
+            <height>70</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>24</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Left Steps: 0</string>
+          </property>
+         </widget>
+         <widget class="QLabel" name="standing_time_label">
+          <property name="geometry">
+           <rect>
+            <x>25</x>
+            <y>80</y>
+            <width>450</width>
+            <height>70</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>21</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Standing Time: 0:00:00</string>
+          </property>
+         </widget>
+        </widget>
+        <widget class="QGroupBox" name="hand_tracking_groupBox">
+         <property name="geometry">
+          <rect>
+           <x>25</x>
+           <y>810</y>
+           <width>500</width>
+           <height>280</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>16</pointsize>
+          </font>
+         </property>
+         <property name="title">
+          <string>Hand Tracking</string>
+         </property>
+         <widget class="QLabel" name="right_hand_count_label">
+          <property name="geometry">
+           <rect>
+            <x>25</x>
+            <y>80</y>
+            <width>450</width>
+            <height>70</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>24</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Right Hand: 0</string>
+          </property>
+         </widget>
+         <widget class="QLabel" name="left_hand_count_label">
+          <property name="geometry">
+           <rect>
+            <x>25</x>
+            <y>160</y>
+            <width>450</width>
+            <height>70</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>24</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Left Hand: 0</string>
+          </property>
+         </widget>
+        </widget>
+        <widget class="QCheckBox" name="motion_tracking_checkBox">
+         <property name="geometry">
+          <rect>
+           <x>2</x>
+           <y>15</y>
+           <width>25</width>
+           <height>25</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+        <widget class="QCheckBox" name="steps_tracking_checkBox">
+         <property name="geometry">
+          <rect>
+           <x>2</x>
+           <y>415</y>
+           <width>25</width>
+           <height>25</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+        <widget class="QCheckBox" name="hand_tracking_checkBox">
+         <property name="geometry">
+          <rect>
+           <x>2</x>
+           <y>815</y>
+           <width>25</width>
+           <height>25</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </widget>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1914</width>
+     <height>18</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionOpen"/>
+    <addaction name="actionWebcam"/>
+    <addaction name="actionGenerate_CSV_File"/>
+   </widget>
+   <addaction name="menuFile"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionOpen">
+   <property name="text">
+    <string>Open</string>
+   </property>
+  </action>
+  <action name="actionWebcam">
+   <property name="text">
+    <string>Webcam</string>
+   </property>
+  </action>
+  <action name="actionGenerate_CSV_File">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Generate CSV File</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

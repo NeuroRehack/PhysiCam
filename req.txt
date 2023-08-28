@@ -1,0 +1,5 @@
+numpy
+opencv_python
+mediapipe
+PyQt5
+pyqt5-tools
