@@ -171,6 +171,11 @@ cython_debug/
 # bin files
 *.bin
 
+# text files
+*.txt
+
+# 
 other
 
+# PhysiCam saved files
 PhysiCam_SavedFiles

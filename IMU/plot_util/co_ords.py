@@ -28,10 +28,14 @@ def read_motion_tracking_data(data, side, index, time_range):
                 print(err)
 
             if time < time_range[1] and time > time_range[0]:
-                curr_count = row[f"{side} hand"]
-                if curr_count != prev_count:
-                    co_ords_count.append(time)
-                    prev_count = curr_count
+
+                try:
+                    curr_count = row[f"{side} hand"]
+                    if curr_count != prev_count:
+                        co_ords_count.append(time)
+                        prev_count = curr_count
+                except KeyError as err:
+                    pass
 
                 """ ignore points with low visibility score """
                 vis_thresh = 80

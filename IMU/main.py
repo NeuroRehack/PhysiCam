@@ -29,7 +29,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
 
         self._sensor = str()
         self._side = str()
+
         self._max_fname_len = 80
+        self._time_range = [0, 60]
 
         co_ords.reset()
         wmore.reset()
@@ -47,6 +49,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
         self.SideComboBox.addItem("Left")
         self.SideComboBox.addItem("Right")
         self.SideComboBox.currentIndexChanged.connect(self.update_side)
+
+        self.FromLineEdit.editingFinished.connect(lambda: self.update_time_range(0))
+        self.ToLineEdit.editingFinished.connect(lambda: self.update_time_range(1))
 
 
     def choose_file(self, id):
@@ -92,6 +97,14 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
     def update_side(self, _):
         self._side = self.SideComboBox.currentText().lower()
         print(f"{self._side}")
+
+    
+    def update_time_range(self, index):
+        if index == 0:
+            self._time_range[0] = int(self.FromLineEdit.text())
+        if index == 1:
+            self._time_range[1] = int(self.ToLineEdit.text())
+        print(f"time range: from {self._time_range[0]} sec to {self._time_range[1]} sec")
         
 
     def plot(self):
@@ -101,13 +114,19 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
 
         if self._sensor == "Wmore":
 
-            start_time = co_ords.read_motion_tracking_data(self._file_name2[0], self._side, co_ords_index, wmore.wmore_time_range)
+            start_time = co_ords.read_motion_tracking_data(
+                self._file_name2[0], self._side, co_ords_index, self._time_range
+            )
             co_ords_time_p, co_ords_acc_p, co_ords_sample_rate = co_ords.process_motion_tracking_data(
-                wmore.wmore_time_range, lpf=True
+                self._time_range, lpf=True
             )
 
-            wmore.read_wmore_sensor_data(self._file_name1[0], co_ords_start_time=start_time)
-            wmore_time_p, wmore_acc_p, wmore_sample_rate = wmore.process_wmore_sensor_data(lpf=True)
+            wmore.read_wmore_sensor_data(
+                self._file_name1[0], self._time_range, co_ords_start_time=start_time
+            )
+            wmore_time_p, wmore_acc_p, wmore_sample_rate = wmore.process_wmore_sensor_data(
+                self._time_range, lpf=True
+            )
 
             print(
                 "motion tracking sample rate: %.2f, wmore sample rate: %.2f"
@@ -127,16 +146,23 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
 
         elif self._sensor == "Delsys":
 
-            co_ords.read_motion_tracking_data(self._file_name2[0], self._side, co_ords_index, delsys.delsys_time_range)
+            co_ords.read_motion_tracking_data(
+                self._file_name2[0], self._side, co_ords_index, self._time_range
+            )
             co_ords_time_p, co_ords_acc_p, co_ords_sample_rate = co_ords.process_motion_tracking_data(
-                delsys.delsys_time_range, lpf=True
+                self._time_range, lpf=True
             )
 
-            delsys.read_delsys_sensor_data(self._file_name1[0])
-            delsys_time_p, delsys_acc_p, delsys_sample_rate = delsys.process_delsys_sensor_data(lpf=True)
+            delsys.read_delsys_sensor_data(
+                self._file_name1[0], self._time_range
+            )
+            delsys_time_p, delsys_acc_p, delsys_sample_rate = delsys.process_delsys_sensor_data(
+                self._time_range, lpf=True
+            )
 
             print(
-                f"motion tracking sample rate: {co_ords_sample_rate}, delsys sample rate: {delsys_sample_rate}"
+                "motion tracking sample rate: %.2f, delsys sample rate: %.2f"
+                % (co_ords_sample_rate, delsys_sample_rate)
             )
 
             """ plot data """

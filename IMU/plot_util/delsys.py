@@ -7,10 +7,10 @@ delsys_dir = "Recordings_Delsys/"
 
 delsys_data = "230710_14-53-47"
 
-delsys_time_range = (10, 30)
+#delsys_time_range = (10, 30)
 
 
-def read_delsys_sensor_data(data):
+def read_delsys_sensor_data(data, time_range):
     """
     read wearable sensor data
 
@@ -23,17 +23,17 @@ def read_delsys_sensor_data(data):
                 break
 
             time = float(time)
-            if time < delsys_time_range[1] and time > delsys_time_range[0]:
+            if time < time_range[1] and time > time_range[0]:
                 delsys_time.append(float(time))
                 delsys_acc_x.append(float(row["Avanti sensor 1: ACC.X 1"]))
                 delsys_acc_y.append(float(row["Avanti sensor 1: ACC.Y 1"]))
                 delsys_acc_z.append(float(row["Avanti sensor 1: ACC.Z 1"]))
 
 
-def process_delsys_sensor_data(lpf=False):
+def process_delsys_sensor_data(time_range, lpf=False):
     """get magnitude of acceleration for delsys sensor data"""
     delsys_acc = util.remove_gravity(util.get_magnitude_3d(delsys_acc_x, delsys_acc_y, delsys_acc_z), 1)
-    delsys_sample_rate = len(delsys_time) / (delsys_time_range[1] - delsys_time_range[0])
+    delsys_sample_rate = len(delsys_time) / (time_range[1] - time_range[0])
 
     new_delsys_time = delsys_time
 

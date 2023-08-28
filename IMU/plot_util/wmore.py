@@ -10,10 +10,10 @@ wmore_subdir = "box_and_blocks_right_0/"
 wmore_data = "box_and_blocks_right_0"
 
 
-wmore_time_range = (0, 60)
+#wmore_time_range = (0, 60)
 
 
-def read_wmore_sensor_data(data, co_ords_start_time=None):
+def read_wmore_sensor_data(data, time_range, co_ords_start_time=None):
     with open(data) as wmore_file:
         wmore_reader = csv.DictReader(wmore_file)
 
@@ -46,8 +46,8 @@ def read_wmore_sensor_data(data, co_ords_start_time=None):
                     time = curr_time - start_time
 
                     if (
-                        time < wmore_time_range[1]
-                        and time > wmore_time_range[0]
+                        time < time_range[1]
+                        and time > time_range[0]
                         and time != prev_time
                     ):
                         wmore_time.append(time)
@@ -60,9 +60,9 @@ def read_wmore_sensor_data(data, co_ords_start_time=None):
                 count += 1
 
 
-def process_wmore_sensor_data(lpf=False):
+def process_wmore_sensor_data(time_range, lpf=False):
 
-    wmore_sample_rate = len(wmore_time) / (wmore_time_range[1] - wmore_time_range[0])
+    wmore_sample_rate = len(wmore_time) / (time_range[1] - time_range[0])
     f_cutoff, f_order = 3, 3
 
     if lpf:
