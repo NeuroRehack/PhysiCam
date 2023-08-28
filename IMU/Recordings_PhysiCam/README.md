@@ -1,0 +1,1 @@
+Directory for storing session recordings from the PhysiCam app

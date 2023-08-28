@@ -1,0 +1,1 @@
+Directory for storing WMORE sensor data

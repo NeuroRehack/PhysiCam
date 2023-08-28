@@ -1,5 +1,7 @@
 import sys
 from matplotlib import pyplot as plt
+from traceback import format_exc
+
 from plot_util import co_ords, delsys, wmore
 from plot_util.util import Util as util
 
@@ -30,7 +32,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
         self._sensor = str()
         self._side = str()
 
-        self._max_fname_len = 80
+        self._max_fname_len = 70
         self._time_range = [0, 60]
 
         co_ords.reset()
@@ -114,65 +116,73 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
 
         if self._sensor == "Wmore":
 
-            start_time = co_ords.read_motion_tracking_data(
-                self._file_name2[0], self._side, co_ords_index, self._time_range
-            )
-            co_ords_time_p, co_ords_acc_p, co_ords_sample_rate = co_ords.process_motion_tracking_data(
-                self._time_range, lpf=True
-            )
+            try:
+                start_time = co_ords.read_motion_tracking_data(
+                    self._file_name2[0], self._side, co_ords_index, self._time_range
+                )
+                co_ords_time_p, co_ords_acc_p, co_ords_sample_rate = co_ords.process_motion_tracking_data(
+                    self._time_range, lpf=True
+                )
 
-            wmore.read_wmore_sensor_data(
-                self._file_name1[0], self._time_range, co_ords_start_time=start_time
-            )
-            wmore_time_p, wmore_acc_p, wmore_sample_rate = wmore.process_wmore_sensor_data(
-                self._time_range, lpf=True
-            )
+                wmore.read_wmore_sensor_data(
+                    self._file_name1[0], self._time_range, co_ords_start_time=start_time
+                )
+                wmore_time_p, wmore_acc_p, wmore_sample_rate = wmore.process_wmore_sensor_data(
+                    self._time_range, lpf=True
+                )
 
-            print(
-                "motion tracking sample rate: %.2f, wmore sample rate: %.2f"
-                % (co_ords_sample_rate, wmore_sample_rate)
-            )
+                print(
+                    "motion tracking sample rate: %.2f, wmore sample rate: %.2f"
+                    % (co_ords_sample_rate, wmore_sample_rate)
+                )
 
-            plt.plot(co_ords_time_p, co_ords_acc_p)
-            plt.plot(wmore_time_p, wmore_acc_p)
-            plt.vlines(co_ords.co_ords_count, util.bounds[0], util.bounds[1], colors="g")
-            plt.xlabel("Time (s)")
-            plt.ylabel("Normalised Acceleration")
-            plt.legend(["Motion Tracking", "WMORE Wearable Sensor"])
-            plt.show()
+                plt.plot(co_ords_time_p, co_ords_acc_p)
+                plt.plot(wmore_time_p, wmore_acc_p)
+                plt.vlines(co_ords.co_ords_count, util.bounds[0], util.bounds[1], colors="g")
+                plt.xlabel("Time (s)")
+                plt.ylabel("Normalised Acceleration")
+                plt.legend(["Motion Tracking", "WMORE Wearable Sensor"])
+                plt.show()
+
+            except Exception:
+                print(f"{format_exc()}")
 
             co_ords.reset()
             wmore.reset()
 
         elif self._sensor == "Delsys":
 
-            co_ords.read_motion_tracking_data(
-                self._file_name2[0], self._side, co_ords_index, self._time_range
-            )
-            co_ords_time_p, co_ords_acc_p, co_ords_sample_rate = co_ords.process_motion_tracking_data(
-                self._time_range, lpf=True
-            )
+            try:
+                co_ords.read_motion_tracking_data(
+                    self._file_name2[0], self._side, co_ords_index, self._time_range
+                )
+                co_ords_time_p, co_ords_acc_p, co_ords_sample_rate = co_ords.process_motion_tracking_data(
+                    self._time_range, lpf=True
+                )
 
-            delsys.read_delsys_sensor_data(
-                self._file_name1[0], self._time_range
-            )
-            delsys_time_p, delsys_acc_p, delsys_sample_rate = delsys.process_delsys_sensor_data(
-                self._time_range, lpf=True
-            )
+                delsys.read_delsys_sensor_data(
+                    self._file_name1[0], self._time_range
+                )
+                delsys_time_p, delsys_acc_p, delsys_sample_rate = delsys.process_delsys_sensor_data(
+                    self._time_range, lpf=True
+                )
 
-            print(
-                "motion tracking sample rate: %.2f, delsys sample rate: %.2f"
-                % (co_ords_sample_rate, delsys_sample_rate)
-            )
+                print(
+                    "motion tracking sample rate: %.2f, delsys sample rate: %.2f"
+                    % (co_ords_sample_rate, delsys_sample_rate)
+                )
 
-            """ plot data """
-            plt.plot(co_ords_time_p, co_ords_acc_p)
-            plt.plot(delsys_time_p, delsys_acc_p)
-            plt.vlines(co_ords.co_ords_count, util.bounds[0], util.bounds[1], colors="g")
-            plt.xlabel("Time (s)")
-            plt.ylabel("Normalised Acceleration")
-            plt.legend(["Motion Tracking", "Delsys Wearable Sensor", "Detected Count"])
-            plt.show()
+                """ plot data """
+                plt.plot(co_ords_time_p, co_ords_acc_p)
+                plt.plot(delsys_time_p, delsys_acc_p)
+                plt.vlines(co_ords.co_ords_count, util.bounds[0], util.bounds[1], colors="g")
+                plt.xlabel("Time (s)")
+                plt.ylabel("Normalised Acceleration")
+                plt.legend(["Motion Tracking", "Delsys Wearable Sensor", "Detected Count"])
+                plt.show()
+
+            except Exception as err:
+                print(f"{format_exc()}")
 
             co_ords.reset()
             delsys.reset()
