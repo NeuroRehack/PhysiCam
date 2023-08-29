@@ -40,6 +40,9 @@ class MainThread(QtCore.QThread):
         self._stop_time = None
         self._session_time = None
 
+        self._write_file = None
+        self._save_file = True
+
         self._curr_video_source = 0
         self._source = None
         self._shape = None
@@ -134,6 +137,16 @@ class MainThread(QtCore.QThread):
 
                 """ draw stick figure overlay (draw after hand detection in "count_movements()) """
                 self._motion.draw(self._img, self._pose_landmarks)
+
+                """ parse movement data to file object """
+                if self._session_time is not None:
+                    self._write_file.parse_movements(
+                        self._tracking_movements,
+                        self._pose_landmarks,
+                        self._session_time,
+                        self._img.shape,
+                        corr_mode=False,
+                    )
 
             """ flip image if accessed from webcam """
             if self._source == Util.WEBCAM:
@@ -299,7 +312,7 @@ class MainThread(QtCore.QThread):
             create new file object
 
             """
-            #self._write_file = CsvFile(save=self._save_file)
+            self._write_file = CsvFile(save=self._save_file)
 
             if self._stop_time is not None and (
                 self._source == Util.VIDEO or self._is_paused
@@ -316,11 +329,12 @@ class MainThread(QtCore.QThread):
         else:
             self._stop_time = time.time()
 
-            """ write to csv file """
-            #self._write_file.write(self._name_id, self._shape)
-
     def save(self):
-        print("save")
+
+        self._write_file.write(str(), self._shape)
+        self._write_file = CsvFile(save=self._save_file)
+
+        #print("save")
 
 class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
     """
