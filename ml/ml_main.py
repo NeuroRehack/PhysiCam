@@ -319,6 +319,8 @@ class MainThread(QtCore.QThread):
             """ write to csv file """
             #self._write_file.write(self._name_id, self._shape)
 
+    def save(self):
+        print("save")
 
 class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
     """
@@ -334,7 +336,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
 
         """ set up gui """
         self.setupUi(self)
-        self.setWindowTitle("PhysiCam ML: Collect Data")
+        self.setWindowTitle("PhysiCam ML - Collect Data")
 
         """ create the worker thread """
         self._main_thread = MainThread()
@@ -350,6 +352,17 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
 
         """ connect start/stop pushbutton """
         self.start_pushButton.clicked.connect(self._main_thread.start_stop_recording)
+        #self.start_pushButton.clicked.connect(self.start_stop_recording)
+
+        self._rec_reset = True
+        self._recorded = 0
+
+        self._periods = [4, 8, 12]
+        self._period = self._periods[0]
+        self.period_comboBox.addItem(f"Short ({self._periods[0]} sec)")
+        self.period_comboBox.addItem(f"Medium ({self._periods[1]} sec)")
+        self.period_comboBox.addItem(f"Long ({self._periods[2]} sec)")
+        self.period_comboBox.currentIndexChanged.connect(self.update_period)
 
         self._frame_rates = []
 
@@ -372,6 +385,30 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
 
         else:
             self.start_pushButton.setText("Start")
+
+        if self._main_thread.get_recording_status():
+
+            if self._rec_reset:
+                self._start = time.time()
+                self._rec_reset = False
+            elif time.time() - self._start > self._period:
+                self._rec_reset = True
+                self._recorded += 1
+                self._main_thread.save()
+            else:
+                dt = time.time() - self._start
+                remaining = round(self._period - dt, 2)
+                self.time_label.setText("Time Remaining: %.2f" % (remaining))
+
+            self.rec_label.setText(f"Recorded: {self._recorded}")
+            self.progressBar.setValue(int((time.time() - self._start)*100 / self._period))
+
+        else:
+            self._rec_reset = True
+            self._recorded = 0
+
+    def update_period(self, index):
+        self._period = self._periods[index]
 
     def format_time(self, time):
         return "%d:%02d:%02d" % (time // 3600, time // 60, time % 60)
