@@ -21,7 +21,7 @@ __credits__ = [
 class Util:
 
     """ default path for csv files to be saved """
-    DEFAULT_FILE_PATH = "./PhysiCam_SavedFiles"
+    DEFAULT_FILE_PATH = "./PhysiCam_RecordedSessions"
 
     """ icon file path """
     ICON_FILE_PATH = "./app_util/images/icon.png"

@@ -106,11 +106,14 @@ class CsvFile(File):
         dir = os.scandir(self.file_path)
         files = [a.name for a in dir]
 
+        """ invalid characters """
+        # TO-DO: move invalid char checking to line-edit callback function
+        invalid = r'/\:*"?<>|!@#$%^&'
+
         """ create an appropriate filename (display to terminal for debugging) """
+        name = "" if any(c in name for c in invalid) else name
         name = f"{name}-" if name != "" else ""
         name = name.replace(' ', '_')
-        name = name.replace(':', '')
-        name = name.replace('/', '')
 
         fname = f"{self.file_path}/{name}{self.create_filename()}" 
         print(f"saved file: {fname}") if fname not in files else print("file exists")

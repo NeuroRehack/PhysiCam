@@ -22,10 +22,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
         self.setupUi(self)
         self.setWindowTitle("PhysiCam")
 
-        """ create the worker thread """
-        #self._main_thread = MainThread()
-        #self._main_thread.start()
-
         self._file_name1 = str()
         self._file_name2 = str()
 
