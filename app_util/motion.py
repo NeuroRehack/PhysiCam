@@ -40,8 +40,8 @@ class Motion:
     """
 
     """ motion capture parameters """
-    min_detection_confidence = 0.9
-    min_tracking_confidence = 0.5
+    min_detection_confidence = 0.7
+    min_tracking_confidence = 0.3
 
     """ tracking id's """
     left_shoulder = 11
@@ -210,20 +210,23 @@ class Motion:
                 vis = int(landmark.visibility * 100)
 
                 """ get the velocity of each landmark """
-                if self._prev_landmarks is not None:
-                    x_prev, y_prev, z_prev = self._prev_landmarks[id][1:4]
-                    dx, dy, dz, dt = x - x_prev, y - y_prev, z - z_prev, curr_time - self._prev_time
-                    vel_x, vel_y, vel_z = dx/dt, dy/dt, dz/dt
+                try:
+                    if self._prev_landmarks is not None:
+                        x_prev, y_prev, z_prev = self._prev_landmarks[id][1:4]
+                        dx, dy, dz, dt = x - x_prev, y - y_prev, z - z_prev, curr_time - self._prev_time
+                        vel_x, vel_y, vel_z = dx/dt, dy/dt, dz/dt
 
-                    self._vel_buf.append(math.sqrt(vel_x**2 + vel_y**2 + vel_z**2))
+                        self._vel_buf.append(math.sqrt(vel_x**2 + vel_y**2 + vel_z**2))
 
-                    if len(self._vel_buf) > self._vel_max_buf_size:
-                        self._vel_buf = self._vel_buf[-self._vel_max_buf_size:]
+                        if len(self._vel_buf) > self._vel_max_buf_size:
+                            self._vel_buf = self._vel_buf[-self._vel_max_buf_size:]
 
-                    vel = round(mean(self._vel_buf))
+                        vel = round(mean(self._vel_buf))
 
-                else:
-                    vel = None
+                    else:
+                        vel = 0
+                except:
+                    vel = 0
 
                 """ append raw co-ordinate values (pixel values) """
                 lm = (id, x, y, z, vis, vel)

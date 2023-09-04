@@ -111,9 +111,12 @@ class MainThread(QtCore.QThread):
         self._time_stamps = list()
         self._index = 0
 
+        self._flip = False          ### flip video, TO-DO: save flip status to csv file
         self._name_id = str()
+        self._curr_movement = str()
 
         self._modes = set()
+
         self._corr_mode = False      ### corr mode (use with motion sensors)
 
         self._save_file = True if self._corr_mode else self._save_file
@@ -255,11 +258,12 @@ class MainThread(QtCore.QThread):
                         self._pose_landmarks,
                         self._session_time,
                         self._img.shape,
+                        self._curr_movement,
                         corr_mode=self._corr_mode,
                     )
 
             """ flip image if accessed from webcam """
-            if self._source == Util.WEBCAM:
+            if self._source == Util.WEBCAM and self._flip:
                 self._img = cv.flip(self._img, 1)
 
             """ emit image signal to the main-window thread to be displayed """
@@ -329,6 +333,8 @@ class MainThread(QtCore.QThread):
 
         if source is not None:
             self._curr_video_source = source
+
+        self._flip = True if self._curr_video_source == 0 else False
             
         cap = cv.VideoCapture(self._curr_video_source, cv.CAP_DSHOW)
         cap = self.set_frame_dimensions(cap, "webcam")
@@ -543,6 +549,12 @@ class MainThread(QtCore.QThread):
         """
         self._name_id = name_id
 
+    def update_movement(self, movement):
+        """
+        
+        """
+        self._curr_movement = movement
+
     def update_modes(self, mode, update=None):
         """
         callback for updating (adding or removing) modes
@@ -625,6 +637,8 @@ class MainThread(QtCore.QThread):
         
         """
         is_hands_enabled = self.hand_tracking_mode in self._modes
+        self._box_and_blocks_right.set_tracking_status(is_hands_enabled)
+        self._box_and_blocks_left.set_tracking_status(is_hands_enabled)
 
         if cropped and is_hands_enabled:
             self._hand_landmarks = list()
@@ -761,6 +775,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
         """ connect line edit """
         self.name_id_lineEdit.editingFinished.connect(self.update_name_id)
 
+        """ connect movement label signals """
+        self.movement_set_pushButton.clicked.connect(self.update_movement)
+
         """ connect action triggers """
         self.actionOpen.triggered.connect(self.open_file)
         self.actionWebcam.triggered.connect(self.open_webcam)
@@ -808,6 +825,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
 
         if self._main_thread.get_recording_status():
             self.start_pushButton.setText("Stop")
+            #self.name_id_lineEdit.setEnabled(False)
 
             if self._main_thread.get_input_source() == Util.WEBCAM:
                 self.pause_pushButton.setVisible(True)
@@ -815,6 +833,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
         else:
             self.start_pushButton.setText("Start")
             self.pause_pushButton.setVisible(False)
+            #self.name_id_lineEdit.setEnabled(True)
 
         if self._main_thread.get_pause_status():
             self.pause_pushButton.setText("Resume")
@@ -907,6 +926,23 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
 
         """
         self._main_thread.update_name_id(self.name_id_lineEdit.text())
+
+    def update_movement(self):
+        """
+        
+        """
+        if self.movement_set_pushButton.isChecked():
+            movement = self.movement_lineEdit.text()
+
+            if movement != str():
+                self._main_thread.update_movement(movement)
+                self.movement_lineEdit.setEnabled(False)
+            else:
+                self.movement_set_pushButton.setChecked(False)
+
+        else:
+            self._main_thread.update_movement(str())
+            self.movement_lineEdit.setEnabled(True)
 
     def open_file(self):
         """

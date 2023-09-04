@@ -133,7 +133,10 @@ class CsvFile(File):
         """
         return f'{time.strftime("%y%m%d-%H%M%S")}.csv'
 
-    def parse_movements(self, movements, landmarks, curr_time, shape, corr_mode=False):
+    def parse_movements(
+            self, movements, landmarks, curr_time, shape, curr_movement, 
+            corr_mode=False,
+        ):
         """
         parses the movement data periodically and stores it to be written laters
 
@@ -141,7 +144,7 @@ class CsvFile(File):
         if not self._save_file:
             return
         
-        delay = 0.01 if corr_mode else 0.05
+        delay = 0.01 if corr_mode else 0.02
 
         """ init field names for csv file """
         if self._prev_time == 0:
@@ -149,12 +152,14 @@ class CsvFile(File):
             self._prev_time = 0 if corr_mode else time.time()
 
             self._keys = [
-                key for key in movements.keys() if movements[key].get_tracking_status()
+                key for key in movements.keys() # if movements[key].get_tracking_status()
             ]
             self._keys.insert(0, "system time")
             self._keys.insert(1, "time")
             self._keys.insert(2, "resolution")
             self._keys.insert(3, "")
+            self._keys.insert(4, "current movement")
+            self._keys.insert(5, "")
             self._keys.append("")
 
             for i in range(33):
@@ -172,8 +177,11 @@ class CsvFile(File):
                     (curr_time % 1) * 100,
                 ),
                 "resolution": shape,
+                "current movement": curr_movement,
             }
             for key, value in movements.items():
+                data[key] = None
+
                 if movements[key].get_tracking_status():
                     data[key] = value.get_count()
 
