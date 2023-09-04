@@ -6,6 +6,8 @@ Contains static definitions specifically used for this project.
 see "doc/util.md" for more details
 
 """
+import time
+
 
 __author__ = "Mike Smith"
 __email__ = "dongming.shi@uqconnect.edu.au"
@@ -22,6 +24,7 @@ class Util:
 
     """ default path for csv files to be saved """
     DEFAULT_FILE_PATH = "./PhysiCam_RecordedSessions"
+    DEFAULS_VIDEO_PATH = "./Physicam_VideoRecordings"
 
     """ icon file path """
     ICON_FILE_PATH = "./app_util/images/icon.png"
@@ -80,3 +83,10 @@ class Util:
             out.append(array[i])
 
         return out.copy()
+    
+    def create_filename():
+        """
+        creates a unique filename using the current system time and date
+
+        """
+        return f'{time.strftime("%y%m%d-%H%M%S")}'

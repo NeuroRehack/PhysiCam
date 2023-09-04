@@ -23,7 +23,7 @@ from app_util.gui import Ui_MainWindow
 from app_util.config import Config
 from app_util.util import Util
 from app_util.motion import Motion, Hand
-from app_util.file import File, CsvFile
+from app_util.file import File, CsvFile, VideoFile
 from app_util.aruco import Aruco
 from app_util.movement import (
     ArmExtensions,
@@ -104,8 +104,11 @@ class MainThread(QtCore.QThread):
 
         self._read_file = None
         self._write_file = None
-        self._save_file = True     ### enable / disable "save to csv"
+        self._save_file = False      ### enable / disable "save to csv"
+        self._save_video = False    ### enable / disable saving video recordings
+        self._video_recording = None
 
+        self._filetime = Util.create_filename()
         self._file_name = None
         self._file_read = False
         self._time_stamps = list()
@@ -205,6 +208,9 @@ class MainThread(QtCore.QThread):
                 and self._is_recording
                 and not self._is_paused
             ):
+                
+                self._video_recording.parse_video_frame(self._img, self._session_time)
+
                 """ corr mode: use time-stamps file is provided """
                 if self._corr_mode and len(self._time_stamps) > 0:
                     try:
@@ -448,7 +454,7 @@ class MainThread(QtCore.QThread):
             button_handler = handle_exit_msg_box.clickedButton()
             button_clicked = handle_exit_msg_box.standardButton(button_handler)
             if button_clicked == QtWidgets.QMessageBox.Yes:
-                self._write_file.write(self._name_id, self._shape)
+                self._write_file.write(self._name_id, self._filetime)
 
     def get_frame_rate(self, frame_times):
         """
@@ -502,7 +508,12 @@ class MainThread(QtCore.QThread):
             create new file object
 
             """
+            self._filetime = Util.create_filename()
+
             self._write_file = CsvFile(save=self._save_file)
+
+            self._video_recording = VideoFile(save=self._save_video)
+            self._video_recording.start_video(self._filetime, self._img.shape)
 
             if self._stop_time is not None and (
                 self._source == Util.VIDEO or self._is_paused
@@ -519,7 +530,9 @@ class MainThread(QtCore.QThread):
             self._stop_time = time.time()
 
             """ write to csv file """
-            self._write_file.write(self._name_id, self._shape)
+            self._write_file.write(self._name_id, self._filetime)
+
+            self._video_recording.end_video()
 
     def pause(self):
         """

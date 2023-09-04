@@ -15,6 +15,7 @@ see "doc/file.md" for more details
 import csv
 import os
 import time
+import cv2 as cv
 from .util import Util
 from datetime import datetime
 
@@ -38,11 +39,19 @@ class File:
 
     """ default file path (in sub-dir "files" located in current dir) """
     file_path = Util.DEFAULT_FILE_PATH
+    video_path = Util.DEFAULS_VIDEO_PATH
     supported_files = {Util.CSV: ".csv", Util.MP4: ".mp4", Util.AVI: ".avi"}
 
     def __init__(self, save=True):
         """
         save: a boolean to specify whether or not to generate a file
+
+        """
+        self._save_file = save
+
+    def set_save_status(self, save):
+        """
+        set whether or not to generate a file
 
         """
         self._save_file = save
@@ -63,6 +72,63 @@ class File:
         return Util.FILE_NOT_SUPPORTED
     
 
+class VideoFile(File):
+
+    def __init__(self, save=True):
+
+        super().__init__(save)
+
+        self._video_out = None
+        self._timestamps = list()
+
+    def start_video(self, filetime, shape):
+
+        h, w, _ = shape
+
+        if not self._save_file:
+            return
+
+        """ create a directory to store the saved files """
+        if not os.path.exists(self.video_path):
+            os.mkdir(self.video_path)
+
+        if not os.path.exists(f"{self.video_path}/{filetime}"):
+            os.mkdir(f"{self.video_path}/{filetime}")
+
+        self._fname = f"{self.video_path}/{filetime}/{filetime}"
+        self._video_out = cv.VideoWriter(
+            f"{self._fname}.avi", cv.VideoWriter_fourcc(*'XVID'), 30, (w, h),
+        )
+
+        self._timestamps = list()
+
+    def parse_video_frame(self, frame, curr_time):
+
+        if not self._save_file:
+            return
+
+        if curr_time is None:
+            return
+
+        self._video_out.write(frame)
+        self._timestamps.append(curr_time)
+
+    def end_video(self):
+
+        if not self._save_file:
+            return
+
+        self._video_out.release()
+
+        # write the timestamps to a text file at the end of the recording
+        with open(f"{self._fname}.txt", "a") as f:
+            for t in self._timestamps:
+                f.write(f"{t}\n")
+
+        print(f"saved video: {self._fname}.avi")
+        print(f"saved timestamps file: {self._fname}.txt")
+                
+
 class CsvFile(File):
     """
     csv file module: contains specific method for interfacing with csv files
@@ -75,13 +141,6 @@ class CsvFile(File):
 
         self._data = []
         self._prev_time = 0
-    
-    def set_save_status(self, save):
-        """
-        set whether or not to generate a file
-
-        """
-        self._save_file = save
 
     def read(self):
         """
@@ -90,7 +149,7 @@ class CsvFile(File):
         """
         pass
 
-    def write(self, name, shape):
+    def write(self, name, filetime):
         """
         takes the parsed data and writes it to a csv file
 
@@ -106,6 +165,7 @@ class CsvFile(File):
         dir = os.scandir(self.file_path)
         files = [a.name for a in dir]
 
+        ##########
         """ invalid characters """
         # TO-DO: move invalid char checking to line-edit callback function
         invalid = r'/\:*"?<>|!@#$%^&'
@@ -115,8 +175,9 @@ class CsvFile(File):
         name = f"{name}-" if name != "" else ""
         name = name.replace(' ', '_')
 
-        fname = f"{self.file_path}/{name}{self.create_filename()}" 
+        fname = f"{self.file_path}/{name}{filetime}.csv"
         print(f"saved file: {fname}") if fname not in files else print("file exists")
+        #########
 
         """ create a csv file and write to it """
         with open(fname, "w", newline="") as new_file:
@@ -126,12 +187,6 @@ class CsvFile(File):
             for d in self._data:
                 dict_writer.writerow(d)
 
-    def create_filename(self):
-        """
-        creates a unique filename using the current system time and date
-
-        """
-        return f'{time.strftime("%y%m%d-%H%M%S")}.csv'
 
     def parse_movements(
             self, movements, landmarks, curr_time, shape, curr_movement, 
@@ -144,7 +199,7 @@ class CsvFile(File):
         if not self._save_file:
             return
         
-        delay = 0.01 if corr_mode else 0.02
+        delay = 0 if corr_mode else 0
 
         """ init field names for csv file """
         if self._prev_time == 0:
@@ -165,16 +220,16 @@ class CsvFile(File):
             for i in range(33):
                 self._keys.append(i)
 
-        """ update data every ~100ms """
+        """ update data """
         if time.time() > self._prev_time + delay:
             data = {
                 "system time": f'{datetime.now().strftime("%y/%m/%d_%H:%M:%S.%f")[:-3]}',
-                "time": "%d:%02d:%02d.%02d"
+                "time": "%d:%02d:%02d.%05d"
                 % (
                     curr_time // 3600,
                     curr_time // 60,
                     curr_time % 60,
-                    (curr_time % 1) * 100,
+                    (curr_time % 1) * 1e5,
                 ),
                 "resolution": shape,
                 "current movement": curr_movement,
