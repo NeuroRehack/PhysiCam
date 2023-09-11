@@ -426,13 +426,14 @@ class Hand():
                 if len(self._left_or_right_array) > self._max_array_len:
                     self._left_or_right_array = self._left_or_right_array[-self._max_array_len:]
 
-                    right_count = self._left_or_right_array.count("Left")
-                    left_count = self._left_or_right_array.count("Right")
+                    # for the flipped frame
+                    right_count = self._left_or_right_array.count(Util.LEFT)
+                    left_count = self._left_or_right_array.count(Util.RIGHT)
 
                     if left_count == self._max_array_len:
-                        self._left_or_right = "Left"
+                        self._left_or_right = Util.LEFT
                     elif right_count == self._max_array_len:
-                        self._left_or_right = "Right"
+                        self._left_or_right = Util.RIGHT
                     else:
                         self._left_or_right = None
 

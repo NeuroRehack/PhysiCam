@@ -39,7 +39,7 @@ class File:
 
     """ default file path (in sub-dir "files" located in current dir) """
     file_path = Util.DEFAULT_FILE_PATH
-    video_path = Util.DEFAULS_VIDEO_PATH
+    video_path = Util.DEFAULT_VIDEO_PATH
     supported_files = {Util.CSV: ".csv", Util.MP4: ".mp4", Util.AVI: ".avi"}
 
     def __init__(self, save=True):
@@ -109,9 +109,11 @@ class VideoFile(File):
 
         if curr_time is None:
             return
-
-        self._video_out.write(frame)
-        self._timestamps.append(curr_time)
+        try:
+            self._video_out.write(frame)
+            self._timestamps.append(curr_time)
+        except:
+            pass
 
     def end_video(self):
 

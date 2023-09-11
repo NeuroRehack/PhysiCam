@@ -19,12 +19,13 @@ import time
 import cv2 as cv
 from PyQt5 import QtCore, QtWidgets, QtGui
 from statistics import mean
-from app_util.gui import Ui_MainWindow
+from app_util import gui, gui_thresh
 from app_util.config import Config
 from app_util.util import Util
 from app_util.motion import Motion, Hand
 from app_util.file import File, CsvFile, VideoFile
 from app_util.aruco import Aruco
+from app_util.playback import Playback
 from app_util.movement import (
     ArmExtensions,
     SitToStand, 
@@ -82,6 +83,18 @@ class MainThread(QtCore.QThread):
     steps_tracking_mode = 1
     hand_tracking_mode = 2
 
+    """
+    thresholds ids
+
+    """
+    sit_to_stand_hip_angle = 0
+
+    left_arm_reach_elbow_angle = 1
+    left_arm_reach_shoulder_angle = 2
+
+    right_arm_reach_elbow_angle = 3
+    right_arm_reach_shoulder_angle = 4
+
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -119,6 +132,9 @@ class MainThread(QtCore.QThread):
         self._curr_movement = str()
 
         self._modes = set()
+
+        self._playback = None
+        self._timestamps = None
 
         self._corr_mode = False      ### corr mode (use with motion sensors)
 
@@ -179,8 +195,13 @@ class MainThread(QtCore.QThread):
                 
                 """
                 self.start_stop_recording()
+
+                #if self._playback is not None:
+                    #self._playback = None
+
                 while not self._is_recording and self._source != Util.WEBCAM:
                     pass
+
                 continue
 
             """ get frame dimensions """
@@ -209,7 +230,8 @@ class MainThread(QtCore.QThread):
                 and not self._is_paused
             ):
                 
-                self._video_recording.parse_video_frame(self._img, self._session_time)
+                if self._save_video:
+                    self._video_recording.parse_video_frame(self._img, self._session_time)
 
                 """ corr mode: use time-stamps file is provided """
                 if self._corr_mode and len(self._time_stamps) > 0:
@@ -232,23 +254,23 @@ class MainThread(QtCore.QThread):
 
             """ detect lines """
             self._img_lines, self._boundary = self._boundary_detector.detect_boundary(
-                self._img,
-                self._detected,
-                self._corr_mode,
+                self._img, self._detected, self._corr_mode,
             )
 
             """ track motion and count movements (only when recording) """
             if self._is_recording and not self._is_paused:
 
-                # self._img = self._hand.find_hand(self._img)
-
                 self._pose_landmarks = list()
+
+                if self._playback is not None:
+                    self._playback.parse_frame(
+                        self._img, self._session_time, self._timestamps, 
+                        overlay=False,
+                    )
+
                 self._img, begin, end, cropped, view = self._motion.track_motion(
-                    self._img,
-                    self._pose_landmarks,
-                    self._session_time,
-                    debug=False,
-                    dynamic=True,
+                    self._img, self._pose_landmarks, self._session_time,
+                    debug=False, dynamic=True,
                 )
 
                 """ count the number of reps for each movement """
@@ -410,6 +432,14 @@ class MainThread(QtCore.QThread):
             self._file_read = False
             print(f'video file: "{name}"')
 
+            timestamps_fname = f'{name.replace(".avi", ".txt")}'
+            print(f'timestamps file: "{timestamps_fname}"')
+
+            self._playback = Playback()
+            self._timestamps = self._playback.read_timestamps(timestamps_fname)
+
+            print(self._timestamps)
+
         elif file_type == Util.CSV:
             print(f'csv file: "{name}"')
 
@@ -512,8 +542,9 @@ class MainThread(QtCore.QThread):
 
             self._write_file = CsvFile(save=self._save_file)
 
-            self._video_recording = VideoFile(save=self._save_video)
-            self._video_recording.start_video(self._filetime, self._img.shape)
+            if self._save_video:
+                self._video_recording = VideoFile(save=self._save_video)
+                self._video_recording.start_video(self._filetime, self._img.shape)
 
             if self._stop_time is not None and (
                 self._source == Util.VIDEO or self._is_paused
@@ -532,7 +563,8 @@ class MainThread(QtCore.QThread):
             """ write to csv file """
             self._write_file.write(self._name_id, self._filetime)
 
-            self._video_recording.end_video()
+            if self._save_video:
+                self._video_recording.end_video()
 
     def pause(self):
         """
@@ -608,10 +640,10 @@ class MainThread(QtCore.QThread):
         """
         is_steps_enabled = self.steps_tracking_mode in self._modes
 
-        self._left_step_tracker = StepTracker(is_steps_enabled, "Left", debug=False)
+        self._left_step_tracker = StepTracker(is_steps_enabled, Util.LEFT, debug=False)
         self._tracking_movements.update({"left steps": self._left_step_tracker})
 
-        self._right_step_tracker = StepTracker(is_steps_enabled, "Right", debug=False)
+        self._right_step_tracker = StepTracker(is_steps_enabled, Util.RIGHT, debug=False)
         self._tracking_movements.update({"right steps": self._right_step_tracker})
 
         self._standing_timer = StandingTimer(is_steps_enabled, debug=False)
@@ -623,10 +655,10 @@ class MainThread(QtCore.QThread):
         is_hands_enabled = self.hand_tracking_mode in self._modes
         self._boundary_detector = BoundaryDetector(aruco=True)
 
-        self._box_and_blocks_left = BoxAndBlocks(is_hands_enabled, "Left", debug=False)
+        self._box_and_blocks_left = BoxAndBlocks(is_hands_enabled, Util.LEFT, debug=False)
         self._tracking_movements.update({"left hand": self._box_and_blocks_left})
 
-        self._box_and_blocks_right = BoxAndBlocks(is_hands_enabled, "Right", debug=False)
+        self._box_and_blocks_right = BoxAndBlocks(is_hands_enabled, Util.RIGHT, debug=False)
         self._tracking_movements.update({"right hand": self._box_and_blocks_right})
 
         """
@@ -635,10 +667,10 @@ class MainThread(QtCore.QThread):
         """
         is_motion_enabled = self.motion_tracking_mode in self._modes
 
-        self._right_arm_ext = ArmExtensions(is_motion_enabled, "Right", debug=False)
+        self._right_arm_ext = ArmExtensions(is_motion_enabled, Util.RIGHT, debug=True)
         self._tracking_movements.update({"right arm ext": self._right_arm_ext})
 
-        self._left_arm_ext = ArmExtensions(is_motion_enabled, "Left", debug=False)
+        self._left_arm_ext = ArmExtensions(is_motion_enabled, Util.LEFT, debug=True)
         self._tracking_movements.update({"left arm ext": self._left_arm_ext})
 
         self._sit_to_stand = SitToStand(is_motion_enabled, ignore_vis=True, debug=False)
@@ -731,9 +763,49 @@ class MainThread(QtCore.QThread):
     
     def get_current_mode(self):
         return self._modes.copy()
+    
+    def adjust_thresh(self, idx, value):
+        print(idx, value)
+    
+
+class ThreshWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_thresh.Ui_MainWindow):
+
+    sit_to_stand_hip_angle = QtCore.pyqtSignal(int)
+
+    left_arm_reach_elbow_angle = QtCore.pyqtSignal(int)
+    left_arm_reach_shoulder_angle = QtCore.pyqtSignal(int)
+
+    right_arm_reach_elbow_angle = QtCore.pyqtSignal(int)
+    right_arm_reach_shoulder_angle = QtCore.pyqtSignal(int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        """ set up gui """
+        self.setupUi(self)
+        self.setWindowTitle("PhysiCam - Adjust Thresholds")
+        self.setWindowIcon(get_icon())
+
+        self.sitToStand_hipAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.sit_to_stand_hip_angle.emit(int(value))
+        )
+
+        self.leftArmReach_elbowAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.left_arm_reach_elbow_angle.emit(int(value))
+        )
+        self.leftArmReach_shoulderAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.left_arm_reach_shoulder_angle.emit(int(value))
+        )
+
+        self.rightArmReach_elbowAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.right_arm_reach_elbow_angle.emit(int(value))
+        )
+        self.rightArmReach_shoulderAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.right_arm_reach_shoulder_angle.emit(int(value))
+        )
 
 
-class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
+class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui.Ui_MainWindow):
     """
     front-end main-window thread: handles graphical user interface
 
@@ -795,6 +867,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
         self.actionOpen.triggered.connect(self.open_file)
         self.actionWebcam.triggered.connect(self.open_webcam)
         self.actionGenerate_CSV_File.triggered.connect(self.generate_file)
+        self.actionAdjust_Thresholds.triggered.connect(self.adjust_thresholds)
 
         """ connect check-box signals """
         self.motion_tracking_checkBox.stateChanged.connect(self.update_motion_tracking_mode)
@@ -981,6 +1054,38 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, Ui_MainWindow):
 
         """
         self._main_thread.generate_file(self.actionGenerate_CSV_File.isChecked())
+
+    def adjust_thresholds(self):
+        self._thresh_window = ThreshWindow()
+        self._thresh_window.show()
+
+        self._thresh_window.sit_to_stand_hip_angle.connect(
+            lambda value: self._main_thread.adjust_thresh(
+                self._main_thread.sit_to_stand_hip_angle, value,
+            )
+        )
+
+        self._thresh_window.left_arm_reach_elbow_angle.connect(
+            lambda value: self._main_thread.adjust_thresh(
+                self._main_thread.left_arm_reach_elbow_angle, value,
+            )
+        )
+        self._thresh_window.left_arm_reach_shoulder_angle.connect(
+            lambda value: self._main_thread.adjust_thresh(
+                self._main_thread.left_arm_reach_shoulder_angle, value,
+            )
+        )
+
+        self._thresh_window.right_arm_reach_elbow_angle.connect(
+            lambda value: self._main_thread.adjust_thresh(
+                self._main_thread.right_arm_reach_elbow_angle, value,
+            )
+        )
+        self._thresh_window.right_arm_reach_shoulder_angle.connect(
+            lambda value: self._main_thread.adjust_thresh(
+                self._main_thread.right_arm_reach_shoulder_angle, value,
+            )
+        )
 
     """ 
     callback functions for updating tracking modes 

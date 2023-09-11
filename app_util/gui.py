@@ -179,6 +179,8 @@ class Ui_MainWindow(object):
         self.menubar.setObjectName("menubar")
         self.menuFile = QtWidgets.QMenu(self.menubar)
         self.menuFile.setObjectName("menuFile")
+        self.menuSettings = QtWidgets.QMenu(self.menuFile)
+        self.menuSettings.setObjectName("menuSettings")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
@@ -191,9 +193,14 @@ class Ui_MainWindow(object):
         self.actionGenerate_CSV_File.setCheckable(True)
         self.actionGenerate_CSV_File.setChecked(True)
         self.actionGenerate_CSV_File.setObjectName("actionGenerate_CSV_File")
+        self.actionAdjust_Thresholds = QtWidgets.QAction(MainWindow)
+        self.actionAdjust_Thresholds.setObjectName("actionAdjust_Thresholds")
+        self.menuSettings.addAction(self.actionGenerate_CSV_File)
+        self.menuSettings.addSeparator()
+        self.menuSettings.addAction(self.actionAdjust_Thresholds)
         self.menuFile.addAction(self.actionOpen)
         self.menuFile.addAction(self.actionWebcam)
-        self.menuFile.addAction(self.actionGenerate_CSV_File)
+        self.menuFile.addAction(self.menuSettings.menuAction())
         self.menubar.addAction(self.menuFile.menuAction())
 
         self.retranslateUi(MainWindow)
@@ -220,9 +227,11 @@ class Ui_MainWindow(object):
         self.movement_lineEdit.setPlaceholderText(_translate("MainWindow", "Movement"))
         self.movement_set_pushButton.setText(_translate("MainWindow", "Set"))
         self.menuFile.setTitle(_translate("MainWindow", "File"))
+        self.menuSettings.setTitle(_translate("MainWindow", "Settings"))
         self.actionOpen.setText(_translate("MainWindow", "Open"))
         self.actionWebcam.setText(_translate("MainWindow", "Webcam"))
         self.actionGenerate_CSV_File.setText(_translate("MainWindow", "Generate CSV File"))
+        self.actionAdjust_Thresholds.setText(_translate("MainWindow", "Adjust Thresholds"))
 
 
 if __name__ == "__main__":

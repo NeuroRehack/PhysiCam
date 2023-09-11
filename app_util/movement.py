@@ -301,6 +301,9 @@ class ArmExtensions(Generic):
         self._vel_frame = list()
         self._vel_frame_len = 5
 
+        self._elbow_thresh = {Util.RIGHT: 130, Util.LEFT: 130}
+        self._shoulder_thresh = {Util.RIGHT: 50, Util.LEFT: 50}
+
     def track_movement(self, landmarks, img, source):
         """
         count the number of reps for the movement
@@ -308,11 +311,11 @@ class ArmExtensions(Generic):
         """
         if len(landmarks) > 0:
 
-            if self._left_or_right == "Left":
+            if self._left_or_right == Util.LEFT:
                 p_elbow = Util.get_points(landmarks, self._left_elbow_angle_points)
                 p_shoulder = Util.get_points(landmarks, self._left_shoulder_angle_points)
 
-            elif self._left_or_right == "Right":
+            elif self._left_or_right == Util.RIGHT:
                 p_elbow = Util.get_points(landmarks, self._right_elbow_angle_points)
                 p_shoulder = Util.get_points(landmarks, self._right_shoulder_angle_points)
             
@@ -326,7 +329,10 @@ class ArmExtensions(Generic):
                 img = self.debug(img, source, landmarks, elbow_angle, shoulder_angle)
 
             if elbow_angle > 0 and shoulder_angle > 0:
-                self._frame.append(elbow_angle > 130 and shoulder_angle > 50)
+                self._frame.append(
+                    elbow_angle > self._elbow_thresh[self._left_or_right]
+                    and shoulder_angle > self._shoulder_thresh[self._left_or_right]
+                )
 
                 if len(self._frame) > self._frame_len:
                     self._frame = self._frame[-self._frame_len:]
@@ -344,9 +350,9 @@ class ArmExtensions(Generic):
 
         elbow_angle, shoulder_angle = args
 
-        if self._left_or_right == "Right":
+        if self._left_or_right == Util.RIGHT:
             lm_elbow, lm_shoulder = Motion.right_elbow, Motion.right_shoulder
-        elif self._left_or_right == "Left":
+        elif self._left_or_right == Util.LEFT:
             lm_elbow, lm_shoulder = Motion.left_elbow, Motion.left_shoulder
         else:
             lm_elbow, lm_shoulder = None, None
@@ -354,11 +360,11 @@ class ArmExtensions(Generic):
         img = self.annotate(img, source, landmarks, elbow_angle, lm=lm_elbow, type="angle")
         img = self.annotate(img, source, landmarks, shoulder_angle, lm=lm_shoulder, type="angle")
         
-        if self._left_or_right == "Left":
+        if self._left_or_right == Util.LEFT:
             wrist_vel = landmarks[Motion.left_wrist][5]
             shoulder_vel = landmarks[Motion.left_shoulder][5]
             lm = Motion.left_wrist
-        elif self._left_or_right == "Right":
+        elif self._left_or_right == Util.RIGHT:
             wrist_vel = landmarks[Motion.right_wrist][5]
             shoulder_vel = landmarks[Motion.right_shoulder][5]
             lm = Motion.right_wrist
@@ -470,12 +476,12 @@ class StepTracker(Generic):
 
             """
             
-            if self._left_or_right == "Left":
+            if self._left_or_right == Util.LEFT:
                 p_thigh = Util.get_points(landmarks, self._left_thigh_grad_points)
                 p_knee = Util.get_points(landmarks, self._left_knee_angle_points)
                 p_foot = Util.get_points(landmarks, self._left_foot_grad_points)
 
-            elif self._left_or_right == "Right":
+            elif self._left_or_right == Util.RIGHT:
                 p_thigh = Util.get_points(landmarks, self._right_thigh_grad_points)
                 p_knee = Util.get_points(landmarks, self._right_knee_angle_points)
                 p_foot = Util.get_points(landmarks, self._right_foot_grad_points)
@@ -492,12 +498,12 @@ class StepTracker(Generic):
 
             """ count steps """
             if knee_angle > 155 and 0 < foot_grad < 0.5 and thigh_grad > 1:
-                if self._left_or_right == "Left" and self._debug:
+                if self._left_or_right == Util.LEFT and self._debug:
                     start = (landmarks[Motion.left_heel][1], landmarks[Motion.left_heel][2])
                     end = (landmarks[Motion.left_toes][1], landmarks[Motion.left_toes][2])
                     cv.line(img, start, end, Util.CYAN, 8)
 
-                elif self._left_or_right == "Right" and self._debug:
+                elif self._left_or_right == Util.RIGHT and self._debug:
                     start = (landmarks[Motion.right_heel][1], landmarks[Motion.right_heel][2])
                     end = (landmarks[Motion.right_toes][1], landmarks[Motion.right_toes][2])
                     cv.line(img, start, end, Util.CYAN, 8)
@@ -531,13 +537,13 @@ class StepTracker(Generic):
 
             cond_vis = [left_ankle[4] > Util.VIS, right_ankle[4] > Util.VIS]
 
-            if self._left_or_right == "Left" and all(cond_vis):
+            if self._left_or_right == Util.RIGHT and all(cond_vis):
                 if left_ankle[3] > right_ankle[3]:
                     self._frame.append(view == Util.FRONT_VIEW)
                 else:
                     self._frame.append(view == Util.REAR_VIEW)
 
-            elif self._left_or_right == "Right" and all(cond_vis):
+            elif self._left_or_right == Util.LEFT and all(cond_vis):
                 if right_ankle[3] > left_ankle[3]:
                     self._frame.append(view == Util.FRONT_VIEW)
                 else:
@@ -563,9 +569,9 @@ class StepTracker(Generic):
 
             knee_angle, foot_grad = args
 
-            if self._left_or_right == "Right":
+            if self._left_or_right == Util.RIGHT:
                 lm_knee, lm_toe = Motion.right_knee, Motion.right_toes
-            elif self._left_or_right == "Left":
+            elif self._left_or_right == Util.LEFT:
                 lm_knee, lm_toe = Motion.left_knee, Motion.left_toes
             else:
                 lm_knee, lm_heel = None, None
@@ -573,11 +579,11 @@ class StepTracker(Generic):
             img = self.annotate(img, source, landmarks, knee_angle, lm=lm_knee, type="angle")
             img = self.annotate(img, source, landmarks, foot_grad, lm=lm_toe, type="grad")
 
-            if self._left_or_right == "Left":
+            if self._left_or_right == Util.LEFT:
                 ankle_vel = landmarks[Motion.left_ankle][5]
                 hip_vel = landmarks[Motion.left_hip][5]
                 lm = Motion.left_ankle
-            elif self._left_or_right == "Right":
+            elif self._left_or_right == Util.RIGHT:
                 ankle_vel = landmarks[Motion.right_ankle][5]
                 hip_vel = landmarks[Motion.right_hip][5]
                 lm = Motion.right_ankle
@@ -697,14 +703,14 @@ class BoxAndBlocks(Generic):
             x, y = hand_landmarks[Hand.pinky][1:3]
 
             """ check for left or right handedness """
-            if self._left_or_right == "Right":
-                cond = [handedness == "Right", self._prev_handedness == "Right"]
-            elif self._left_or_right == "Left":
-                cond = [handedness == "Left", self._prev_handedness == "Left"]
+            if self._left_or_right == Util.RIGHT:
+                cond = [handedness == Util.RIGHT, self._prev_handedness == Util.RIGHT]
+            elif self._left_or_right == Util.LEFT:
+                cond = [handedness == Util.LEFT, self._prev_handedness == Util.LEFT]
 
-            if all(cond) and self._left_or_right == "Right":
+            if all(cond) and self._left_or_right == Util.RIGHT:
                 self._curr = True if x > boundary[Util.X] else False
-            elif all(cond) and self._left_or_right == "Left":
+            elif all(cond) and self._left_or_right == Util.LEFT:
                 self._curr = True if x < boundary[Util.X] else False
 
             """ count based on pinky position relative to the detected boundary """

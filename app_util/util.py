@@ -24,7 +24,7 @@ class Util:
 
     """ default path for csv files to be saved """
     DEFAULT_FILE_PATH = "./PhysiCam_RecordedSessions"
-    DEFAULS_VIDEO_PATH = "./Physicam_VideoRecordings"
+    DEFAULT_VIDEO_PATH = "./Physicam_VideoRecordings"
 
     """ icon file path """
     ICON_FILE_PATH = "./app_util/images/icon.png"
@@ -76,6 +76,10 @@ class Util:
     """ co-ordinate definitions """
     X = 0
     Y = 1
+
+    """ left or right """
+    LEFT = "Left"
+    RIGHT = "Right"
 
     def get_points(array, indices):
         out = list()
