@@ -37,9 +37,9 @@
 
 ## Genetate EXE File
 ```
-pyinstaller src/main.py ^
+pyinstaller main.py ^
     --add-data=C:\Users\61416\AppData\Local\Programs\Python\Python310\Lib\site-packages\mediapipe\modules;mediapipe/modules ^
-    --add-data="C:\Users\61416\Documents\Uni 4\Sem 1\PhysioTrack\src\images";images ^
-    --icon="C:\Users\61416\Documents\Uni 4\Sem 1\PhysioTrack\src\images\icon.png" ^
+    --add-data="C:\Users\61416\Documents\Uni 4\Sem 2\PhysiCam\app_util\images\icon.png";app_util/images/icon.png ^
+    --icon="C:\Users\61416\Documents\Uni 4\Sem 2\PhysiCam\app_util\images\icon.png" ^
     --onefile -w
 ```

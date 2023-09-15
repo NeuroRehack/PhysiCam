@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1908</width>
-    <height>1043</height>
+    <height>1008</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,40 +16,544 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
     <item row="0" column="0">
-     <widget class="QScrollArea" name="scrollArea">
-      <property name="widgetResizable">
-       <bool>true</bool>
+     <widget class="QLabel" name="img_label">
+      <property name="minimumSize">
+       <size>
+        <width>1280</width>
+        <height>720</height>
+       </size>
       </property>
-      <widget class="QWidget" name="scrollAreaWidgetContents">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>1894</width>
-         <height>993</height>
-        </rect>
-       </property>
-       <layout class="QGridLayout" name="gridLayout_2">
-        <item row="0" column="0">
-         <widget class="QFrame" name="frame">
-          <property name="minimumSize">
-           <size>
-            <width>1600</width>
-            <height>900</height>
-           </size>
-          </property>
-          <property name="frameShape">
-           <enum>QFrame::StyledPanel</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Raised</enum>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_3"/>
-         </widget>
-        </item>
-       </layout>
-      </widget>
+      <property name="text">
+       <string/>
+      </property>
      </widget>
+    </item>
+    <item row="1" column="0">
+     <widget class="QFrame" name="frame">
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>150</height>
+       </size>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::StyledPanel</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+      <layout class="QGridLayout" name="gridLayout_2">
+       <item row="0" column="3" colspan="2">
+        <widget class="QLineEdit" name="name_id_lineEdit">
+         <property name="minimumSize">
+          <size>
+           <width>450</width>
+           <height>50</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>16</pointsize>
+          </font>
+         </property>
+         <property name="placeholderText">
+          <string>Patient Name or ID</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2" rowspan="2">
+        <spacer name="horizontalSpacer">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="1" column="3">
+        <widget class="QLineEdit" name="movement_lineEdit">
+         <property name="minimumSize">
+          <size>
+           <width>300</width>
+           <height>50</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>16</pointsize>
+          </font>
+         </property>
+         <property name="placeholderText">
+          <string>Movement</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0" rowspan="2">
+        <widget class="QPushButton" name="start_pushButton">
+         <property name="minimumSize">
+          <size>
+           <width>200</width>
+           <height>100</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>18</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1" rowspan="2">
+        <widget class="QPushButton" name="pause_pushButton">
+         <property name="minimumSize">
+          <size>
+           <width>200</width>
+           <height>100</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>18</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="4">
+        <widget class="QPushButton" name="movement_set_pushButton">
+         <property name="minimumSize">
+          <size>
+           <width>150</width>
+           <height>50</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>16</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Set</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="5" rowspan="2">
+        <spacer name="horizontalSpacer_2">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item row="0" column="1">
+     <widget class="QFrame" name="frame_2">
+      <property name="frameShape">
+       <enum>QFrame::StyledPanel</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <item>
+        <widget class="QLabel" name="framerate_label">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>50</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>16</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Frame Rate: 0.0 fps</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="sessiontime_label">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>50</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>16</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Session Time: 0:00:00</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QScrollArea" name="scrollArea">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>600</height>
+          </size>
+         </property>
+         <property name="widgetResizable">
+          <bool>true</bool>
+         </property>
+         <widget class="QWidget" name="scrollAreaWidgetContents">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>-315</y>
+            <width>579</width>
+            <height>1162</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout">
+           <item>
+            <widget class="QFrame" name="frame_3">
+             <property name="minimumSize">
+              <size>
+               <width>525</width>
+               <height>1150</height>
+              </size>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::StyledPanel</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+             <widget class="QGroupBox" name="motion_tracking_groupBox">
+              <property name="geometry">
+               <rect>
+                <x>25</x>
+                <y>10</y>
+                <width>500</width>
+                <height>380</height>
+               </rect>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>16</pointsize>
+               </font>
+              </property>
+              <property name="title">
+               <string>Motion Tracking</string>
+              </property>
+              <widget class="QLabel" name="sit_to_stand_count_label">
+               <property name="geometry">
+                <rect>
+                 <x>25</x>
+                 <y>80</y>
+                 <width>450</width>
+                 <height>70</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>24</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Sit to Stand: 0</string>
+               </property>
+              </widget>
+              <widget class="QLabel" name="right_arm_ext_count_label">
+               <property name="geometry">
+                <rect>
+                 <x>25</x>
+                 <y>160</y>
+                 <width>450</width>
+                 <height>70</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>24</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Right Arm Ext: 0</string>
+               </property>
+              </widget>
+              <widget class="QLabel" name="left_arm_ext_count_label">
+               <property name="geometry">
+                <rect>
+                 <x>25</x>
+                 <y>240</y>
+                 <width>450</width>
+                 <height>70</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>24</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Left Arm Ext: 0</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="steps_tracking_groupBox">
+              <property name="geometry">
+               <rect>
+                <x>25</x>
+                <y>410</y>
+                <width>500</width>
+                <height>380</height>
+               </rect>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>16</pointsize>
+               </font>
+              </property>
+              <property name="title">
+               <string>Steps Tracking</string>
+              </property>
+              <widget class="QLabel" name="right_steps_count_label">
+               <property name="geometry">
+                <rect>
+                 <x>25</x>
+                 <y>160</y>
+                 <width>450</width>
+                 <height>70</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>24</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Right Steps: 0</string>
+               </property>
+              </widget>
+              <widget class="QLabel" name="left_steps_count_label">
+               <property name="geometry">
+                <rect>
+                 <x>25</x>
+                 <y>240</y>
+                 <width>450</width>
+                 <height>70</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>24</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Left Steps: 0</string>
+               </property>
+              </widget>
+              <widget class="QLabel" name="standing_time_label">
+               <property name="geometry">
+                <rect>
+                 <x>25</x>
+                 <y>80</y>
+                 <width>450</width>
+                 <height>70</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>21</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Standing Time: 0:00:00</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="hand_tracking_groupBox">
+              <property name="geometry">
+               <rect>
+                <x>25</x>
+                <y>810</y>
+                <width>500</width>
+                <height>280</height>
+               </rect>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>16</pointsize>
+               </font>
+              </property>
+              <property name="title">
+               <string>Hand Tracking</string>
+              </property>
+              <widget class="QLabel" name="right_hand_count_label">
+               <property name="geometry">
+                <rect>
+                 <x>25</x>
+                 <y>80</y>
+                 <width>450</width>
+                 <height>70</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>24</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Right Hand: 0</string>
+               </property>
+              </widget>
+              <widget class="QLabel" name="left_hand_count_label">
+               <property name="geometry">
+                <rect>
+                 <x>25</x>
+                 <y>160</y>
+                 <width>450</width>
+                 <height>70</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>24</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Left Hand: 0</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QCheckBox" name="motion_tracking_checkBox">
+              <property name="geometry">
+               <rect>
+                <x>2</x>
+                <y>15</y>
+                <width>25</width>
+                <height>25</height>
+               </rect>
+              </property>
+              <property name="text">
+               <string/>
+              </property>
+             </widget>
+             <widget class="QCheckBox" name="steps_tracking_checkBox">
+              <property name="geometry">
+               <rect>
+                <x>2</x>
+                <y>415</y>
+                <width>25</width>
+                <height>25</height>
+               </rect>
+              </property>
+              <property name="text">
+               <string/>
+              </property>
+             </widget>
+             <widget class="QCheckBox" name="hand_tracking_checkBox">
+              <property name="geometry">
+               <rect>
+                <x>2</x>
+                <y>815</y>
+                <width>25</width>
+                <height>25</height>
+               </rect>
+              </property>
+              <property name="text">
+               <string/>
+              </property>
+             </widget>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item row="1" column="1">
+     <widget class="QFrame" name="frame_4">
+      <property name="frameShape">
+       <enum>QFrame::StyledPanel</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+      <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <item>
+        <widget class="QLabel" name="source_label">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>150</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>16</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Camera:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="source_comboBox">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>50</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>16</pointsize>
+          </font>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item row="2" column="0" colspan="2">
+     <spacer name="verticalSpacer">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>20</width>
+        <height>40</height>
+       </size>
+      </property>
+     </spacer>
     </item>
    </layout>
   </widget>

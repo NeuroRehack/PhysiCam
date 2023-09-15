@@ -19,7 +19,7 @@ import time
 import cv2 as cv
 from PyQt5 import QtCore, QtWidgets, QtGui
 from statistics import mean
-from app_util import gui, gui_thresh
+from app_util import gui, gui_main, gui_thresh
 from app_util.config import Config
 from app_util.util import Util
 from app_util.motion import Motion, Hand
@@ -117,7 +117,7 @@ class MainThread(QtCore.QThread):
 
         self._read_file = None
         self._write_file = None
-        self._save_file = False      ### enable / disable "save to csv"
+        self._save_file = True      ### enable / disable "save to csv"
         self._save_video = False    ### enable / disable saving video recordings
         self._video_recording = None
 
@@ -667,10 +667,10 @@ class MainThread(QtCore.QThread):
         """
         is_motion_enabled = self.motion_tracking_mode in self._modes
 
-        self._right_arm_ext = ArmExtensions(is_motion_enabled, Util.RIGHT, debug=True)
+        self._right_arm_ext = ArmExtensions(is_motion_enabled, Util.RIGHT, debug=False)
         self._tracking_movements.update({"right arm ext": self._right_arm_ext})
 
-        self._left_arm_ext = ArmExtensions(is_motion_enabled, Util.LEFT, debug=True)
+        self._left_arm_ext = ArmExtensions(is_motion_enabled, Util.LEFT, debug=False)
         self._tracking_movements.update({"left arm ext": self._left_arm_ext})
 
         self._sit_to_stand = SitToStand(is_motion_enabled, ignore_vis=True, debug=False)
@@ -805,7 +805,7 @@ class ThreshWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_thresh.Ui_MainW
         )
 
 
-class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui.Ui_MainWindow):
+class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindow):
     """
     front-end main-window thread: handles graphical user interface
 
