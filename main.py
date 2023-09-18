@@ -126,7 +126,7 @@ class MainThread(QtCore.QThread):
         self._time_stamps = list()
         self._index = 0
 
-        self._blur_faces = False
+        self._blur_faces = True
         self._flip = False          ### flip video, TO-DO: save flip status to csv file
         self._name_id = str()
         self._curr_movement = str()
@@ -260,9 +260,6 @@ class MainThread(QtCore.QThread):
                 self._img, self._detected, self._corr_mode,
             )
 
-            """ find faces """
-            self._img = self._faces.find_faces(self._img)
-
             """ track motion and count movements (only when recording) """
             if self._is_recording and not self._is_paused:
 
@@ -275,9 +272,13 @@ class MainThread(QtCore.QThread):
                     )
 
                 self._img, begin, end, cropped, view = self._motion.track_motion(
-                    self._img, self._pose_landmarks, self._session_time,
+                    self._img, self._pose_landmarks, self._session_time, self._blur_faces,
                     debug=False, dynamic=True,
                 )
+
+                """ find faces """
+                if self._blur_faces:
+                    self._img = self._faces.find_faces(self._img)
 
                 """ count the number of reps for each movement """
                 self.count_movements(cropped, begin, end, view)
@@ -467,6 +468,13 @@ class MainThread(QtCore.QThread):
 
         """
         self._save_file = generate
+
+    def blur_faces(self, blur):
+        """
+        callback function whether or not to blur faces
+
+        """
+        self._blur_faces = blur
 
     def handle_exit(self, event):
         """
@@ -877,6 +885,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self.actionOpen.triggered.connect(self.open_file)
         self.actionWebcam.triggered.connect(self.open_webcam)
         self.actionGenerate_CSV_File.triggered.connect(self.generate_file)
+        self.actionBlur_Faces.triggered.connect(self.blur_faces)
         self.actionAdjust_Thresholds.triggered.connect(self.adjust_thresholds)
 
         """ connect check-box signals """
@@ -1064,6 +1073,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
 
         """
         self._main_thread.generate_file(self.actionGenerate_CSV_File.isChecked())
+
+    def blur_faces(self):
+        self._main_thread.blur_faces(self.actionBlur_Faces.isChecked())
 
     def adjust_thresholds(self):
         self._thresh_window = ThreshWindow()

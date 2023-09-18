@@ -86,26 +86,18 @@ class Motion:
         min_detection_confidence=min_detection_confidence,
         min_tracking_confidence=min_tracking_confidence,
     ):
-        self._static_image_mode = static_image_mode
-        self._model_complexity = model_complexity
-        self._smooth_landmarks = smooth_landmarks
-        self._enable_segmentation = enable_segmentation
-        self._smooth_segmentation = smooth_segmentation
-        self._min_detection_confidence = min_detection_confidence
-        self._min_tracking_confidence = min_tracking_confidence
-
         self._pose_param_dict = {
             "mp pose": mp.solutions.pose,
             "mp draw": mp.solutions.drawing_utils,
         }
         self._pose = self._pose_param_dict["mp pose"].Pose(
-            static_image_mode=self._static_image_mode,
-            model_complexity=self._model_complexity,
-            smooth_landmarks=self._smooth_landmarks,
-            enable_segmentation=self._enable_segmentation,
-            smooth_segmentation=self._smooth_segmentation,
-            min_detection_confidence=self._min_detection_confidence,
-            min_tracking_confidence=self._min_tracking_confidence,
+            static_image_mode=static_image_mode,
+            model_complexity=model_complexity,
+            smooth_landmarks=smooth_landmarks,
+            enable_segmentation=enable_segmentation,
+            smooth_segmentation=smooth_segmentation,
+            min_detection_confidence=min_detection_confidence,
+            min_tracking_confidence=min_tracking_confidence,
         )
 
         self._prev_time = None
@@ -131,7 +123,7 @@ class Motion:
         """ for use when dynamic mode is disabled """
         self._border = self._bbox_borders[max(self._bbox_borders.keys())]
 
-    def track_motion(self, img, landmarks, curr_time, debug=False, dynamic=True):
+    def track_motion(self, img, landmarks, curr_time, blur_faces, debug=False, dynamic=True):
 
         """ disable dynamic bbox (crop) is detection is not consistent """
         if not all(self._prev_crop) and len(self._prev_crop) == self._crop_seq_len:
@@ -241,6 +233,21 @@ class Motion:
                 """
                 lm_pixels.append((int(landmark.x * width), int(landmark.y * height)))
 
+            """ face blurring """
+            if blur_faces:
+                x_lst, y_lst = list(), list()
+                for id, x, y, z, vis, vel in landmarks:
+                    if id in [i for i in range(11)]:
+                        x_lst.append(x)
+                        y_lst.append(y)
+
+                rect_min_x = int(min(x_lst) - 0.05*width)
+                rect_min_y = int(min(y_lst) - 0.1*height)
+                rect_max_x = int(max(x_lst) + 0.05*width)
+                rect_max_y = int(max(y_lst) + 0.1*height)
+
+                img = circular_blur(img, rect_min_x, rect_max_x, rect_min_y, rect_max_y)
+
             """ draw the bounding box """
             self._landmark_x_min = min([lm[Util.X] for lm in lm_pixels]) - int(
                 self._border[Util.X] * width
@@ -310,8 +317,6 @@ class Motion:
         overlays the detected landmarks as a stick figure onto the frame
         
         """
-        cv.rectangle(img, crop_begin, crop_end, Util.BLUE, Util.BORDER_WIDTH)
-
         if self._results.pose_landmarks:
 
             """ draw connections between detected points """
@@ -325,25 +330,19 @@ class Motion:
             for id, x, y, z, vis, vel in landmarks:
 
                 left = [
-                    id == self.left_wrist,
-                    id == self.left_elbow,
-                    id == self.left_shoulder,
-                    id == self.left_hip,
-                    id == self.left_knee,
-                    id == self.left_ankle,
+                    self.left_wrist, self.left_elbow, self.left_shoulder,
+                    self.left_hip, self.left_knee, self.left_ankle,
                 ]
                 right = [
-                    id == self.right_wrist,
-                    id == self.right_elbow,
-                    id == self.right_shoulder,
-                    id == self.right_hip,
-                    id == self.right_knee,
-                    id == self.right_ankle,
+                    self.right_wrist, self.right_elbow, self.right_shoulder,
+                    self.right_hip, self.right_knee, self.right_ankle,
                 ]
-                if any(left):
+                if id in left:
                     cv.circle(img, (x, y), int(8), Util.GREEN, cv.FILLED)
-                if any(right):
+                if id in right:
                     cv.circle(img, (x, y), int(8), Util.RED, cv.FILLED)
+
+        cv.rectangle(img, crop_begin, crop_end, Util.BLUE, Util.BORDER_WIDTH)
 
 
 class Hand():
@@ -365,31 +364,23 @@ class Hand():
     pinky = 20
 
     def __init__(self, 
-                 static_image_mode = False,
-                 max_num_hands = max_num_hands,
-                 model_complexity = 1,
-                 min_detection_confidence = min_detection_confidence,
-                 min_tracking_confidence = min_tracking_confidence,
-                ):
-        self._static_image_mode = static_image_mode
-        self._max_num_hands = max_num_hands
-        self._model_complexity = model_complexity
-        self._min_detection_confidence = min_detection_confidence
-        self._min_tracking_confidence = min_tracking_confidence
-
+        static_image_mode = False,
+        max_num_hands = max_num_hands,
+        model_complexity = 1,
+        min_detection_confidence = min_detection_confidence,
+        min_tracking_confidence = min_tracking_confidence,
+    ):
         self._hands_param_dict = {
             "mp hands": mp.solutions.hands,
             "mp draw": mp.solutions.drawing_utils
         }
         self._hands = self._hands_param_dict["mp hands"].Hands(
-            static_image_mode = self._static_image_mode,
-            max_num_hands = self._max_num_hands,
-            model_complexity = self._model_complexity,
-            min_detection_confidence = self._min_detection_confidence,
-            min_tracking_confidence = self._min_tracking_confidence
+            static_image_mode = static_image_mode,
+            max_num_hands = max_num_hands,
+            model_complexity = model_complexity,
+            min_detection_confidence = min_detection_confidence,
+            min_tracking_confidence = min_tracking_confidence
         )
-
-        self._progress_circle = ProgressCircle()
 
         self._max_array_len = 10
         self._left_or_right_array = list()
@@ -408,9 +399,7 @@ class Hand():
 
         """ calculate positional adjustment needed for the cropped frame """
         adjust_x, adjust_y, grad_x, grad_y = get_adjustments(
-            begin, 
-            end, 
-            (height, width),
+            begin, end, (height, width),
         )
 
         img_crop = cv.cvtColor(img_crop, cv.COLOR_BGR2RGB)
@@ -461,13 +450,9 @@ class Hand():
                     landmarks.append(lm)
 
                     finger_params = [
-                        id == self.thumb,
-                        id == self.index,
-                        id == self.middle,
-                        id == self.ring,
-                        id == self.pinky,
+                        self.thumb, self.index, self.middle, self.ring, self.pinky,
                     ]
-                    if any(finger_params):
+                    if id in finger_params:
                         cv.circle(img, (landmarks[id][1], landmarks[id][2]), 10, Util.CYAN, 2)
 
                     if self._left_or_right is not None and source == Util.VIDEO:
@@ -479,26 +464,22 @@ class Hand():
     
 
 class Faces():
-    def __init__(self,
-                 static_image_mode = False,
-                 max_num_faces = 128,
-                 min_detection_confidence = 0.3,
-                 min_tracking_confidence = 0.1,
-                ):
-        self._static_image_mode = static_image_mode
-        self._max_num_faces = max_num_faces
-        self._min_detection_confidence = min_detection_confidence
-        self._min_tracking_confidence = min_tracking_confidence
 
+    def __init__(self,
+        static_image_mode = False,
+        max_num_faces = 128,
+        min_detection_confidence = 0.5,
+        min_tracking_confidence = 0.3,
+    ):
         self._faces_param_dict = {
             "mp faces": mp.solutions.face_mesh,
             "mp draw": mp.solutions.drawing_utils
         }
         self._faces = self._faces_param_dict["mp faces"].FaceMesh(
-            static_image_mode = self._static_image_mode,
-            max_num_faces = self._max_num_faces,
-            min_detection_confidence = self._min_detection_confidence,
-            min_tracking_confidence = self._min_tracking_confidence
+            static_image_mode = static_image_mode,
+            max_num_faces = max_num_faces,
+            min_detection_confidence = min_detection_confidence,
+            min_tracking_confidence = min_tracking_confidence,
         )
         self._draw_spec = self._faces_param_dict["mp draw"].DrawingSpec(
             thickness = 1, circle_radius = 1
@@ -507,7 +488,6 @@ class Faces():
         self._end = (0, 0)
 
     def find_faces(self, img): #, landmarks, crop):
-
         h, w, _ = img.shape
 
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
@@ -518,7 +498,6 @@ class Faces():
         self._end = (0, 0)
         if results.multi_face_landmarks:
             for face_landmarks in results.multi_face_landmarks:
-                upper, lower = None, None
                 x, y = list(), list()
                 for id, landmark in enumerate(face_landmarks.landmark):
 
@@ -526,50 +505,14 @@ class Faces():
                         cx, cy = int(landmark.x * w), int(landmark.y * h)
                         x.append(cx)
                         y.append(cy)
-                        #cv.circle(img, (cx, cy), 10, Util.WHITE, -1)
-
-                    '''if id == 10:
-                        upper = int(landmark.x * w), int(landmark.y * h)
-                    if id == 152:
-                        lower = int(landmark.x * w), int(landmark.y * h)
-                    if upper is not None and lower is not None:
-                        centre = (upper[0] + lower[0]) // 2, (upper[1] + lower[1]) // 2
-                        dx, dy = abs(upper[0] - lower[0]), abs(upper[1] - lower[1])
-                        radii = int(math.sqrt(dx**2 + dy**2) // 2)'''
-                        
-                        #mask = np.zeros(img.shape, dtype="uint8")
-                        #cv.circle(mask, centre, radii, Util.WHITE, -1)
-                        
-                        #blurred_img = 
-                        #img = np.where(mask > 0, blurred_img, img)
 
                 rect_min_x, rect_min_y = (int(min(x) - 0.05*w), int(min(y) - 0.1*h))
                 rect_max_x, rect_max_y = (int(max(x) + 0.05*w), int(max(y) + 0.1*h))
-                #cv.rectangle(img, (rect_min_x, rect_min_y), (rect_max_x, rect_max_y), Util.BLUE, Util.BORDER_WIDTH)
 
-                roi = img[rect_min_y:rect_max_y, rect_min_x:rect_max_x]
-                roi = cv.medianBlur(roi, 99) #, cv.BORDER_DEFAULT)
+                img = circular_blur(img, rect_min_x, rect_max_x, rect_min_y, rect_max_y)
 
-                img[rect_min_y:rect_max_y, rect_min_x:rect_max_x] = roi
-
-                '''self._faces_param_dict["mp draw"].draw_landmarks(
-                    img, face_landmarks, 
-                    self._faces_param_dict["mp faces"].FACE_CONNECTIONS,
-                    self._draw_spec
-                )'''
-
-            '''if landmarks[200][2] - landmarks[10][2] < 0.2:
-                self._start = (int((landmarks[10][1] - 0.2) * Util.FRAME_WIDTH), Util.FRAME_ORIGIN)
-                self._end = (int((landmarks[10][1] + 0.2) * Util.FRAME_WIDTH), Util.FRAME_HEIGHT)
-                cv.rectangle(img, self._start, self._end, Util.MAGENTA, 3)'''
-            
-        #crop["start"] = self._start
-        #crop["end"] = self._end
         return img
 
-
-
-    
 
 def get_adjustments(begin, end, dim):
     """
@@ -600,41 +543,26 @@ def apply_adjustments(lm, adjust, grad):
     return x, y
 
 
-class ProgressCircle:
-    """
-    progress circle used for testing
+def circular_blur(img, *args):
+    min_x, max_x, min_y, max_y = args
 
-    """
-    def __init__(self):
+    try:
+        roi = img[min_y:max_y, min_x:max_x]
+        blur = cv.medianBlur(roi, 99)
 
-        self._complete = 50
-        self._radius = 0.1
-        self.reset()
+        mask = np.zeros_like(roi)
+        mask_h, mask_w = mask.shape[0:2]
+        centre = mask_w // 2, mask_h // 2
+        radii = int(min([mask_h, mask_w]) // 2)
 
-    def reset(self):
-        self._status = 0
+        mask = cv.circle(mask, centre, radii, Util.WHITE, -1)
+        mask = cv.bitwise_and(blur, mask)
 
-    def draw_progress_circle(self, img, centre):
-
-        h, w, _ = img.shape
-        r = self._radius * h
-        self._progress = list()
-
-        i = 0
-        while i < self._status:
-            th = (i/self._complete) * 360
-            x = int(centre[Util.X] - r*math.sin(math.radians(th)))
-            y = int(centre[Util.Y] - r*math.cos(math.radians(th)))
-            self._progress.append((x, y))
-            i += 1
-
-        for x, y in self._progress:
-            img = cv.circle(img, (x, y), 10, Util.RED, -1)
-
-        self._status += 1
-
-        if self._status >= self._complete:
-            self.reset()
-            return img, True
-
-        return img, False
+        roi = cv.circle(roi, centre, radii, Util.BLACK, -1)
+        roi = cv.bitwise_or(roi, mask)
+        img[min_y:max_y, min_x:max_x] = roi
+    
+    except Exception as err:
+        pass
+        
+    return img

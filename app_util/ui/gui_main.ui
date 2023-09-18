@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1908</width>
-    <height>1008</height>
+    <width>1902</width>
+    <height>992</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -167,6 +167,12 @@
     </item>
     <item row="0" column="1">
      <widget class="QFrame" name="frame_2">
+      <property name="maximumSize">
+       <size>
+        <width>800</width>
+        <height>800</height>
+       </size>
+      </property>
       <property name="frameShape">
        <enum>QFrame::StyledPanel</enum>
       </property>
@@ -225,8 +231,8 @@
           <property name="geometry">
            <rect>
             <x>0</x>
-            <y>-315</y>
-            <width>579</width>
+            <y>0</y>
+            <width>568</width>
             <height>1162</height>
            </rect>
           </property>
@@ -493,6 +499,12 @@
     </item>
     <item row="1" column="1">
      <widget class="QFrame" name="frame_4">
+      <property name="maximumSize">
+       <size>
+        <width>800</width>
+        <height>200</height>
+       </size>
+      </property>
       <property name="frameShape">
        <enum>QFrame::StyledPanel</enum>
       </property>
@@ -562,7 +574,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1908</width>
+     <width>1902</width>
      <height>18</height>
     </rect>
    </property>
@@ -575,6 +587,7 @@
       <string>Settings</string>
      </property>
      <addaction name="actionGenerate_CSV_File"/>
+     <addaction name="actionBlur_Faces"/>
      <addaction name="separator"/>
      <addaction name="actionAdjust_Thresholds"/>
     </widget>
@@ -609,6 +622,17 @@
   <action name="actionAdjust_Thresholds">
    <property name="text">
     <string>Adjust Thresholds</string>
+   </property>
+  </action>
+  <action name="actionBlur_Faces">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Blur Faces</string>
    </property>
   </action>
  </widget>

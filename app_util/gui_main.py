@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1908, 1008)
+        MainWindow.resize(1902, 992)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.gridLayout = QtWidgets.QGridLayout(self.centralwidget)
@@ -75,6 +75,7 @@ class Ui_MainWindow(object):
         self.gridLayout_2.addItem(spacerItem1, 0, 5, 2, 1)
         self.gridLayout.addWidget(self.frame, 1, 0, 1, 1)
         self.frame_2 = QtWidgets.QFrame(self.centralwidget)
+        self.frame_2.setMaximumSize(QtCore.QSize(800, 800))
         self.frame_2.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.frame_2.setFrameShadow(QtWidgets.QFrame.Raised)
         self.frame_2.setObjectName("frame_2")
@@ -99,7 +100,7 @@ class Ui_MainWindow(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName("scrollArea")
         self.scrollAreaWidgetContents = QtWidgets.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, -315, 579, 1162))
+        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 568, 1162))
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.scrollAreaWidgetContents)
         self.verticalLayout.setObjectName("verticalLayout")
@@ -191,6 +192,7 @@ class Ui_MainWindow(object):
         self.verticalLayout_2.addWidget(self.scrollArea)
         self.gridLayout.addWidget(self.frame_2, 0, 1, 1, 1)
         self.frame_4 = QtWidgets.QFrame(self.centralwidget)
+        self.frame_4.setMaximumSize(QtCore.QSize(800, 200))
         self.frame_4.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.frame_4.setFrameShadow(QtWidgets.QFrame.Raised)
         self.frame_4.setObjectName("frame_4")
@@ -216,7 +218,7 @@ class Ui_MainWindow(object):
         self.gridLayout.addItem(spacerItem2, 2, 0, 1, 2)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1908, 18))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1902, 18))
         self.menubar.setObjectName("menubar")
         self.menuFile = QtWidgets.QMenu(self.menubar)
         self.menuFile.setObjectName("menuFile")
@@ -236,7 +238,12 @@ class Ui_MainWindow(object):
         self.actionGenerate_CSV_File.setObjectName("actionGenerate_CSV_File")
         self.actionAdjust_Thresholds = QtWidgets.QAction(MainWindow)
         self.actionAdjust_Thresholds.setObjectName("actionAdjust_Thresholds")
+        self.actionBlur_Faces = QtWidgets.QAction(MainWindow)
+        self.actionBlur_Faces.setCheckable(True)
+        self.actionBlur_Faces.setChecked(True)
+        self.actionBlur_Faces.setObjectName("actionBlur_Faces")
         self.menuSettings.addAction(self.actionGenerate_CSV_File)
+        self.menuSettings.addAction(self.actionBlur_Faces)
         self.menuSettings.addSeparator()
         self.menuSettings.addAction(self.actionAdjust_Thresholds)
         self.menuFile.addAction(self.actionOpen)
@@ -273,6 +280,7 @@ class Ui_MainWindow(object):
         self.actionWebcam.setText(_translate("MainWindow", "Webcam"))
         self.actionGenerate_CSV_File.setText(_translate("MainWindow", "Generate CSV File"))
         self.actionAdjust_Thresholds.setText(_translate("MainWindow", "Adjust Thresholds"))
+        self.actionBlur_Faces.setText(_translate("MainWindow", "Blur Faces"))
 
 
 if __name__ == "__main__":
