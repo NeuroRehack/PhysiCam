@@ -281,6 +281,12 @@ class ArmExtensions(Generic):
     arm extensions
 
     """
+    left_arm_reach_elbow_angle = 130
+    right_arm_reach_elbow_angle = 130
+
+    left_arm_reach_shoulder_angle = 50
+    right_arm_reach_shoulder_angle = 50
+
     def __init__(self, is_tracking, left_or_right, ignore_vis=False, debug=False):
         """
         left_or_right: specify left or right side
@@ -301,14 +307,20 @@ class ArmExtensions(Generic):
         self._vel_frame = list()
         self._vel_frame_len = 5
 
-        self._elbow_thresh = {Util.RIGHT: 130, Util.LEFT: 130}
-        self._shoulder_thresh = {Util.RIGHT: 50, Util.LEFT: 50}
-
     def track_movement(self, landmarks, img, source):
         """
         count the number of reps for the movement
 
         """
+        self._elbow_thresh = {
+            Util.RIGHT: self.right_arm_reach_elbow_angle, 
+            Util.LEFT: self.left_arm_reach_elbow_angle,
+        }
+        self._shoulder_thresh = {
+            Util.RIGHT: self.right_arm_reach_shoulder_angle,
+            Util.LEFT: self.left_arm_reach_shoulder_angle,
+        }
+
         if len(landmarks) > 0:
 
             if self._left_or_right == Util.LEFT:
@@ -327,6 +339,9 @@ class ArmExtensions(Generic):
 
             if self._debug:
                 img = self.debug(img, source, landmarks, elbow_angle, shoulder_angle)
+
+            #if self._left_or_right == Util.LEFT:
+                #print(self._elbow_thresh[self._left_or_right])
 
             if elbow_angle > 0 and shoulder_angle > 0:
                 self._frame.append(

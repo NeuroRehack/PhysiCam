@@ -15,7 +15,9 @@ see "doc/motion.md" for more details
 
 """
 
+import sys
 import math
+import numpy as np
 import cv2 as cv
 import mediapipe as mp
 from statistics import mean
@@ -260,7 +262,6 @@ class Motion:
 
             start = (x_min + Util.BORDER_WIDTH, y_min + Util.BORDER_WIDTH)
             end = (x_max - Util.BORDER_WIDTH, y_max - Util.BORDER_WIDTH)
-            cv.rectangle(img, start, end, Util.BLUE, Util.BORDER_WIDTH)
 
             self.crop_begin = (x_min, y_min)
             self.crop_end = (x_max, y_max)
@@ -304,11 +305,13 @@ class Motion:
         for lm, prev_lm in zip(landmarks, self._prev_landmarks):
             pass
     
-    def draw(self, img, landmarks):
+    def draw(self, img, landmarks, crop_begin, crop_end):
         """
         overlays the detected landmarks as a stick figure onto the frame
         
         """
+        cv.rectangle(img, crop_begin, crop_end, Util.BLUE, Util.BORDER_WIDTH)
+
         if self._results.pose_landmarks:
 
             """ draw connections between detected points """
@@ -473,6 +476,99 @@ class Hand():
                         cv.putText(img, self._left_or_right, pos, font, 0.8, Util.BLUE, 2)
 
         return img, self._left_or_right
+    
+
+class Faces():
+    def __init__(self,
+                 static_image_mode = False,
+                 max_num_faces = 128,
+                 min_detection_confidence = 0.3,
+                 min_tracking_confidence = 0.1,
+                ):
+        self._static_image_mode = static_image_mode
+        self._max_num_faces = max_num_faces
+        self._min_detection_confidence = min_detection_confidence
+        self._min_tracking_confidence = min_tracking_confidence
+
+        self._faces_param_dict = {
+            "mp faces": mp.solutions.face_mesh,
+            "mp draw": mp.solutions.drawing_utils
+        }
+        self._faces = self._faces_param_dict["mp faces"].FaceMesh(
+            static_image_mode = self._static_image_mode,
+            max_num_faces = self._max_num_faces,
+            min_detection_confidence = self._min_detection_confidence,
+            min_tracking_confidence = self._min_tracking_confidence
+        )
+        self._draw_spec = self._faces_param_dict["mp draw"].DrawingSpec(
+            thickness = 1, circle_radius = 1
+        )
+        self._start = (0, 0)
+        self._end = (0, 0)
+
+    def find_faces(self, img): #, landmarks, crop):
+
+        h, w, _ = img.shape
+
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+        results = self._faces.process(img)
+        img = cv.cvtColor(img, cv.COLOR_RGB2BGR)
+
+        self._start = (0, 0)
+        self._end = (0, 0)
+        if results.multi_face_landmarks:
+            for face_landmarks in results.multi_face_landmarks:
+                upper, lower = None, None
+                x, y = list(), list()
+                for id, landmark in enumerate(face_landmarks.landmark):
+
+                    if id == 10 or id == 152 or id == 162 or id == 389:
+                        cx, cy = int(landmark.x * w), int(landmark.y * h)
+                        x.append(cx)
+                        y.append(cy)
+                        #cv.circle(img, (cx, cy), 10, Util.WHITE, -1)
+
+                    '''if id == 10:
+                        upper = int(landmark.x * w), int(landmark.y * h)
+                    if id == 152:
+                        lower = int(landmark.x * w), int(landmark.y * h)
+                    if upper is not None and lower is not None:
+                        centre = (upper[0] + lower[0]) // 2, (upper[1] + lower[1]) // 2
+                        dx, dy = abs(upper[0] - lower[0]), abs(upper[1] - lower[1])
+                        radii = int(math.sqrt(dx**2 + dy**2) // 2)'''
+                        
+                        #mask = np.zeros(img.shape, dtype="uint8")
+                        #cv.circle(mask, centre, radii, Util.WHITE, -1)
+                        
+                        #blurred_img = 
+                        #img = np.where(mask > 0, blurred_img, img)
+
+                rect_min_x, rect_min_y = (int(min(x) - 0.05*w), int(min(y) - 0.1*h))
+                rect_max_x, rect_max_y = (int(max(x) + 0.05*w), int(max(y) + 0.1*h))
+                #cv.rectangle(img, (rect_min_x, rect_min_y), (rect_max_x, rect_max_y), Util.BLUE, Util.BORDER_WIDTH)
+
+                roi = img[rect_min_y:rect_max_y, rect_min_x:rect_max_x]
+                roi = cv.medianBlur(roi, 99) #, cv.BORDER_DEFAULT)
+
+                img[rect_min_y:rect_max_y, rect_min_x:rect_max_x] = roi
+
+                '''self._faces_param_dict["mp draw"].draw_landmarks(
+                    img, face_landmarks, 
+                    self._faces_param_dict["mp faces"].FACE_CONNECTIONS,
+                    self._draw_spec
+                )'''
+
+            '''if landmarks[200][2] - landmarks[10][2] < 0.2:
+                self._start = (int((landmarks[10][1] - 0.2) * Util.FRAME_WIDTH), Util.FRAME_ORIGIN)
+                self._end = (int((landmarks[10][1] + 0.2) * Util.FRAME_WIDTH), Util.FRAME_HEIGHT)
+                cv.rectangle(img, self._start, self._end, Util.MAGENTA, 3)'''
+            
+        #crop["start"] = self._start
+        #crop["end"] = self._end
+        return img
+
+
+
     
 
 def get_adjustments(begin, end, dim):

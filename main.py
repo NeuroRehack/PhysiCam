@@ -22,7 +22,7 @@ from statistics import mean
 from app_util import gui, gui_main, gui_thresh
 from app_util.config import Config
 from app_util.util import Util
-from app_util.motion import Motion, Hand
+from app_util.motion import Motion, Hand, Faces
 from app_util.file import File, CsvFile, VideoFile
 from app_util.aruco import Aruco
 from app_util.playback import Playback
@@ -95,7 +95,6 @@ class MainThread(QtCore.QThread):
     right_arm_reach_elbow_angle = 3
     right_arm_reach_shoulder_angle = 4
 
-
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -117,7 +116,7 @@ class MainThread(QtCore.QThread):
 
         self._read_file = None
         self._write_file = None
-        self._save_file = True      ### enable / disable "save to csv"
+        self._save_file = False      ### enable / disable "save to csv"
         self._save_video = False    ### enable / disable saving video recordings
         self._video_recording = None
 
@@ -127,6 +126,7 @@ class MainThread(QtCore.QThread):
         self._time_stamps = list()
         self._index = 0
 
+        self._blur_faces = False
         self._flip = False          ### flip video, TO-DO: save flip status to csv file
         self._name_id = str()
         self._curr_movement = str()
@@ -160,6 +160,9 @@ class MainThread(QtCore.QThread):
 
         """ init aruco detector """
         self._aruco = Aruco()
+
+        """ init face detector """
+        self._faces = Faces()
 
         """ add and init movements """
         self.add_movements()
@@ -257,6 +260,9 @@ class MainThread(QtCore.QThread):
                 self._img, self._detected, self._corr_mode,
             )
 
+            """ find faces """
+            self._img = self._faces.find_faces(self._img)
+
             """ track motion and count movements (only when recording) """
             if self._is_recording and not self._is_paused:
 
@@ -277,7 +283,7 @@ class MainThread(QtCore.QThread):
                 self.count_movements(cropped, begin, end, view)
 
                 """ draw stick figure overlay (draw after hand detection in "count_movements()) """
-                self._motion.draw(self._img, self._pose_landmarks)
+                self._motion.draw(self._img, self._pose_landmarks, begin, end)
 
                 """ parse movement data to file object """
                 if self._session_time is not None:
@@ -765,7 +771,11 @@ class MainThread(QtCore.QThread):
         return self._modes.copy()
     
     def adjust_thresh(self, idx, value):
-        print(idx, value)
+        match idx:
+            case self.left_arm_reach_elbow_angle:
+                self._left_arm_ext.left_arm_reach_elbow_angle = value
+            case other:
+                pass
     
 
 class ThreshWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_thresh.Ui_MainWindow):
