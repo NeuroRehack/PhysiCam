@@ -133,6 +133,6 @@ class Util:
         """
         w = fc / (fs / 2)
         b, a = sig.butter(order, w)
-        out = sig.filtfilt(b, a, np.array(data))
+        out = sig.lfilter(b, a, np.array(data))
 
         return out.copy()

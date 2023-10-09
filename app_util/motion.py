@@ -32,10 +32,10 @@ __credits__ = [
     "Agnethe Kaasen", 
     "Live Myklebust", 
     "Amber Spurway",
-]
+]   
 
 
-class Motion:
+class Motion():
     """
     motion capture module
 
@@ -123,7 +123,12 @@ class Motion:
         """ for use when dynamic mode is disabled """
         self._border = self._bbox_borders[max(self._bbox_borders.keys())]
 
-    def track_motion(self, img, landmarks, curr_time, blur_faces, debug=False, dynamic=True):
+        """ buffer for lpf """
+        self._lpf_buf_x = {key: list() for key in range(33)}
+        self._lpf_buf_y = {key: list() for key in range(33)}
+        self._lpf_buf_len = 5
+
+    def track_motion(self, img, landmarks, curr_time, blur_faces, debug=False, dynamic=True, filter=True):
 
         """ disable dynamic bbox (crop) is detection is not consistent """
         if not all(self._prev_crop) and len(self._prev_crop) == self._crop_seq_len:
@@ -189,10 +194,8 @@ class Motion:
         if self._results.pose_landmarks:
 
             for id, landmark in enumerate(self._results.pose_landmarks.landmark):
-                """
-                apply positional adjustment for the cropped frame
-
-                """
+                
+                """ apply positional adjustment for the cropped frame """
                 if self.cropped:
                     landmark.x, landmark.y = apply_adjustments(
                         (landmark.x, landmark.y),
@@ -203,7 +206,23 @@ class Motion:
                 x, y, z = int(landmark.x * width), int(landmark.y * height), int(landmark.z * 100)
                 vis = int(landmark.visibility * 100)
 
-                """ get the velocity of each landmark """
+                """ apply lpf """
+                if filter:
+                    self._lpf_buf_x[id].append(x)
+                    self._lpf_buf_y[id].append(y)
+
+                    if len(self._lpf_buf_x[id]) > self._lpf_buf_len:
+                        self._lpf_buf_x[id] = self._lpf_buf_x[id][-self._lpf_buf_len:]
+                        x = int(mean(self._lpf_buf_x[id]))
+
+                    if len(self._lpf_buf_y[id]) > self._lpf_buf_len:
+                        self._lpf_buf_y[id] = self._lpf_buf_y[id][-self._lpf_buf_len:]
+                        y = int(mean(self._lpf_buf_y[id]))
+
+                """ 
+                get the velocity of each landmark 
+                
+                """
                 try:
                     if self._prev_landmarks is not None:
                         x_prev, y_prev, z_prev = self._prev_landmarks[id][1:4]
@@ -320,11 +339,13 @@ class Motion:
         if self._results.pose_landmarks:
 
             """ draw connections between detected points """
-            self._pose_param_dict["mp draw"].draw_landmarks(
+            '''self._pose_param_dict["mp draw"].draw_landmarks(
                 img,
                 self._results.pose_landmarks,
                 self._pose_param_dict["mp pose"].POSE_CONNECTIONS,
-            )
+            )'''
+
+            self.draw_connections(img, landmarks, self._pose_param_dict["mp pose"].POSE_CONNECTIONS)
 
             """ highlight important points """
             for id, x, y, z, vis, vel in landmarks:
@@ -344,6 +365,14 @@ class Motion:
 
         cv.rectangle(img, crop_begin, crop_end, Util.BLUE, Util.BORDER_WIDTH)
 
+    def draw_connections(self, img, landmarks, connections):
+
+        for start, end in connections:
+            start_x, start_y = landmarks[start][1:3]
+            end_x, end_y = landmarks[end][1:3]
+
+            cv.line(img, (start_x, start_y), (end_x, end_y), Util.WHITE, 2)
+        
 
 class Hand():
     """

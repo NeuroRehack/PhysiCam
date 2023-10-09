@@ -7,6 +7,8 @@ see "doc/util.md" for more details
 
 """
 import time
+import numpy as np
+from scipy import signal as sig
 
 
 __author__ = "Mike Smith"
@@ -94,3 +96,14 @@ class Util:
 
         """
         return f'{time.strftime("%y%m%d-%H%M%S")}'
+    
+    def low_pass_filter(data, fc, fs, order):
+        """
+        butterworth low pass filter
+
+        """
+        w = fc / (fs / 2)
+        sos = sig.butter(order, w, btype="low", analog=False, output="sos")
+        out = sig.sosfilt(sos, np.array(data))
+
+        return out.copy()
