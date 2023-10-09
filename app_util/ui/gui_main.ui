@@ -588,6 +588,7 @@
      </property>
      <addaction name="actionGenerate_CSV_File"/>
      <addaction name="actionBlur_Faces"/>
+     <addaction name="actionSmooth_Motion_Tracking"/>
      <addaction name="separator"/>
      <addaction name="actionAdjust_Thresholds"/>
     </widget>
@@ -633,6 +634,17 @@
    </property>
    <property name="text">
     <string>Blur Faces</string>
+   </property>
+  </action>
+  <action name="actionSmooth_Motion_Tracking">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Smooth Motion Tracking</string>
    </property>
   </action>
  </widget>

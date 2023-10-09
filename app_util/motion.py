@@ -126,6 +126,7 @@ class Motion():
         """ buffer for lpf """
         self._lpf_buf_x = {key: list() for key in range(33)}
         self._lpf_buf_y = {key: list() for key in range(33)}
+        self._lpf_buf_z = {key: list() for key in range(33)}
         self._lpf_buf_len = 5
 
     def track_motion(self, img, landmarks, curr_time, blur_faces, debug=False, dynamic=True, filter=True):
@@ -188,7 +189,7 @@ class Motion():
             img_crop = cv.cvtColor(img_crop, cv.COLOR_RGB2BGR)
         except:
             self.cropped = False
-            return img, self.crop_begin, self.crop_end, self.cropped
+            return img, self.crop_begin, self.crop_end, self.cropped, None
 
         """ if human motion is detected """
         if self._results.pose_landmarks:
@@ -210,6 +211,7 @@ class Motion():
                 if filter:
                     self._lpf_buf_x[id].append(x)
                     self._lpf_buf_y[id].append(y)
+                    self._lpf_buf_z[id].append(z)
 
                     if len(self._lpf_buf_x[id]) > self._lpf_buf_len:
                         self._lpf_buf_x[id] = self._lpf_buf_x[id][-self._lpf_buf_len:]
@@ -218,6 +220,10 @@ class Motion():
                     if len(self._lpf_buf_y[id]) > self._lpf_buf_len:
                         self._lpf_buf_y[id] = self._lpf_buf_y[id][-self._lpf_buf_len:]
                         y = int(mean(self._lpf_buf_y[id]))
+
+                    if len(self._lpf_buf_z[id]) > self._lpf_buf_len:
+                        self._lpf_buf_z[id] = self._lpf_buf_z[id][-self._lpf_buf_len:]
+                        z = int(mean(self._lpf_buf_z[id]))
 
                 """ 
                 get the velocity of each landmark 

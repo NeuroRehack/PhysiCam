@@ -242,11 +242,13 @@ class Generic:
 
         elif lm is not None:
             if type == "angle":
-                angle = round(angle)
+                angle = f"a: {round(angle)}"
             elif type == "grad" and angle >= 0:
                 colour = Util.CYAN
+                angle = f"g: {angle}"
             elif type == "vel":
                 colour = Util.GREEN if angle > 100 else Util.RED
+                angle = f"v: {angle}"
 
             if source == Util.WEBCAM:
                 img = cv.flip(img, 1)

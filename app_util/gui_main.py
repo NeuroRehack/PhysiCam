@@ -242,8 +242,13 @@ class Ui_MainWindow(object):
         self.actionBlur_Faces.setCheckable(True)
         self.actionBlur_Faces.setChecked(True)
         self.actionBlur_Faces.setObjectName("actionBlur_Faces")
+        self.actionSmooth_Motion_Tracking = QtWidgets.QAction(MainWindow)
+        self.actionSmooth_Motion_Tracking.setCheckable(True)
+        self.actionSmooth_Motion_Tracking.setChecked(True)
+        self.actionSmooth_Motion_Tracking.setObjectName("actionSmooth_Motion_Tracking")
         self.menuSettings.addAction(self.actionGenerate_CSV_File)
         self.menuSettings.addAction(self.actionBlur_Faces)
+        self.menuSettings.addAction(self.actionSmooth_Motion_Tracking)
         self.menuSettings.addSeparator()
         self.menuSettings.addAction(self.actionAdjust_Thresholds)
         self.menuFile.addAction(self.actionOpen)
@@ -281,6 +286,7 @@ class Ui_MainWindow(object):
         self.actionGenerate_CSV_File.setText(_translate("MainWindow", "Generate CSV File"))
         self.actionAdjust_Thresholds.setText(_translate("MainWindow", "Adjust Thresholds"))
         self.actionBlur_Faces.setText(_translate("MainWindow", "Blur Faces"))
+        self.actionSmooth_Motion_Tracking.setText(_translate("MainWindow", "Smooth Motion Tracking"))
 
 
 if __name__ == "__main__":

@@ -126,6 +126,7 @@ class MainThread(QtCore.QThread):
         self._time_stamps = list()
         self._index = 0
 
+        self._filter = True         # lpf to improve motion tracking smoothness
         self._blur_faces = True
         self._flip = False          ### flip video, TO-DO: save flip status to csv file
         self._name_id = str()
@@ -153,7 +154,7 @@ class MainThread(QtCore.QThread):
         frame_times = {"curr time": 0, "prev time": 0}
 
         """ init motion capture """
-        self._motion = Motion()
+        self._motion = Motion(model_complexity=1)
 
         """ init hand tracker """
         self._hand = Hand()
@@ -273,7 +274,7 @@ class MainThread(QtCore.QThread):
 
                 self._img, begin, end, cropped, view = self._motion.track_motion(
                     self._img, self._pose_landmarks, self._session_time, self._blur_faces,
-                    debug=False, dynamic=True,
+                    debug=False, dynamic=True, filter=self._filter,
                 )
 
                 """ find faces """
@@ -294,6 +295,7 @@ class MainThread(QtCore.QThread):
                         self._session_time,
                         self._img.shape,
                         self._curr_movement,
+                        self._flip,
                         corr_mode=self._corr_mode,
                     )
 
@@ -784,6 +786,9 @@ class MainThread(QtCore.QThread):
                 self._left_arm_ext.left_arm_reach_elbow_angle = value
             case other:
                 pass
+
+    def toggle_filter(self):
+        self._filter = not self._filter
     
 
 class ThreshWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_thresh.Ui_MainWindow):
@@ -887,6 +892,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self.actionGenerate_CSV_File.triggered.connect(self.generate_file)
         self.actionBlur_Faces.triggered.connect(self.blur_faces)
         self.actionAdjust_Thresholds.triggered.connect(self.adjust_thresholds)
+        self.actionSmooth_Motion_Tracking.triggered.connect(self._main_thread.toggle_filter)
 
         """ connect check-box signals """
         self.motion_tracking_checkBox.stateChanged.connect(self.update_motion_tracking_mode)
