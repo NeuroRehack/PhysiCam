@@ -374,10 +374,12 @@ class Motion():
     def draw_connections(self, img, landmarks, connections):
 
         for start, end in connections:
-            start_x, start_y = landmarks[start][1:3]
-            end_x, end_y = landmarks[end][1:3]
-
-            cv.line(img, (start_x, start_y), (end_x, end_y), Util.WHITE, 2)
+            try:
+                start_x, start_y = landmarks[start][1:3]
+                end_x, end_y = landmarks[end][1:3]
+                cv.line(img, (start_x, start_y), (end_x, end_y), Util.WHITE, 2)
+            except IndexError as err:
+                print(err)
         
 
 class Hand():

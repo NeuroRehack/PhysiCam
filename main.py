@@ -17,6 +17,7 @@ see "doc/main.md" for more details
 import sys
 import time
 import cv2 as cv
+import numpy as np
 from PyQt5 import QtCore, QtWidgets, QtGui
 from statistics import mean
 from app_util import gui, gui_main, gui_thresh
@@ -126,8 +127,9 @@ class MainThread(QtCore.QThread):
         self._time_stamps = list()
         self._index = 0
 
+        self._hide_video = False
         self._filter = True         # lpf to improve motion tracking smoothness
-        self._blur_faces = True
+        self._blur_faces = False         
         self._flip = False          ### flip video, TO-DO: save flip status to csv file
         self._name_id = str()
         self._curr_movement = str()
@@ -208,6 +210,9 @@ class MainThread(QtCore.QThread):
 
                 continue
 
+            """ create blank frame """
+            self._blank_frame = np.zeros_like(self._img, dtype="uint8") if self._hide_video else None
+
             """ get frame dimensions """
             self._shape = self._img.shape
             height, width, _ = self._shape
@@ -285,7 +290,9 @@ class MainThread(QtCore.QThread):
                 self.count_movements(cropped, begin, end, view)
 
                 """ draw stick figure overlay (draw after hand detection in "count_movements()) """
-                self._motion.draw(self._img, self._pose_landmarks, begin, end)
+                self._motion.draw(
+                    self._blank_frame if self._hide_video and self._blank_frame is not None else self._img, 
+                    self._pose_landmarks, begin, end)
 
                 """ parse movement data to file object """
                 if self._session_time is not None:
@@ -299,6 +306,15 @@ class MainThread(QtCore.QThread):
                         corr_mode=self._corr_mode,
                     )
 
+            #if self._hide_video:
+            self.emit_qt_img(
+                self._blank_frame if self._hide_video and self._blank_frame  is not None else self._img, 
+                (width, height), (img_width, img_height)
+            )
+            #else:
+                #self.emit_qt_img(self._img, (width, height), (img_width, img_height))
+
+            '''
             """ flip image if accessed from webcam """
             if self._source == Util.WEBCAM and self._flip:
                 self._img = cv.flip(self._img, 1)
@@ -309,6 +325,7 @@ class MainThread(QtCore.QThread):
                 self._img.data, width, height, QtGui.QImage.Format_RGB888
             ).scaled(int(img_width), int(img_height), QtCore.Qt.KeepAspectRatio)
             self.image.emit(QtImg)
+            '''
 
             """ maintain max frame rate of ~30fps (mainly for smooth video playback) """
             self._delay = self._delay + 0.01 if frame_rate > 30 else 0
@@ -329,6 +346,22 @@ class MainThread(QtCore.QThread):
         """
         self._active = False
         self.wait()
+
+    def emit_qt_img(self, img, size, img_size):
+
+        width, height = size
+        img_width, img_height = img_size
+        
+        """ flip image if accessed from webcam """
+        if self._source == Util.WEBCAM and self._flip:
+            img = cv.flip(img, 1)
+
+        """ emit image signal to the main-window thread to be displayed """
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+        QtImg = QtGui.QImage(
+            img.data, width, height, QtGui.QImage.Format_RGB888
+        ).scaled(int(img_width), int(img_height), QtCore.Qt.KeepAspectRatio)
+        self.image.emit(QtImg)
 
     def start_video_capture(self, source=None):
         """
@@ -789,6 +822,9 @@ class MainThread(QtCore.QThread):
 
     def toggle_filter(self):
         self._filter = not self._filter
+
+    def toggle_video(self):
+        self._hide_video = not self._hide_video
     
 
 class ThreshWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_thresh.Ui_MainWindow):
@@ -889,10 +925,12 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         """ connect action triggers """
         self.actionOpen.triggered.connect(self.open_file)
         self.actionWebcam.triggered.connect(self.open_webcam)
+        self.actionAdjust_Thresholds.triggered.connect(self.adjust_thresholds)
+
         self.actionGenerate_CSV_File.triggered.connect(self.generate_file)
         self.actionBlur_Faces.triggered.connect(self.blur_faces)
-        self.actionAdjust_Thresholds.triggered.connect(self.adjust_thresholds)
         self.actionSmooth_Motion_Tracking.triggered.connect(self._main_thread.toggle_filter)
+        self.actionHide_Video.triggered.connect(self._main_thread.toggle_video)
 
         """ connect check-box signals """
         self.motion_tracking_checkBox.stateChanged.connect(self.update_motion_tracking_mode)

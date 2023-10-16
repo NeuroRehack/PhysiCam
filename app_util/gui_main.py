@@ -246,9 +246,13 @@ class Ui_MainWindow(object):
         self.actionSmooth_Motion_Tracking.setCheckable(True)
         self.actionSmooth_Motion_Tracking.setChecked(True)
         self.actionSmooth_Motion_Tracking.setObjectName("actionSmooth_Motion_Tracking")
+        self.actionHide_Video = QtWidgets.QAction(MainWindow)
+        self.actionHide_Video.setCheckable(True)
+        self.actionHide_Video.setObjectName("actionHide_Video")
         self.menuSettings.addAction(self.actionGenerate_CSV_File)
         self.menuSettings.addAction(self.actionBlur_Faces)
         self.menuSettings.addAction(self.actionSmooth_Motion_Tracking)
+        self.menuSettings.addAction(self.actionHide_Video)
         self.menuSettings.addSeparator()
         self.menuSettings.addAction(self.actionAdjust_Thresholds)
         self.menuFile.addAction(self.actionOpen)
@@ -287,6 +291,7 @@ class Ui_MainWindow(object):
         self.actionAdjust_Thresholds.setText(_translate("MainWindow", "Adjust Thresholds"))
         self.actionBlur_Faces.setText(_translate("MainWindow", "Blur Faces"))
         self.actionSmooth_Motion_Tracking.setText(_translate("MainWindow", "Smooth Motion Tracking"))
+        self.actionHide_Video.setText(_translate("MainWindow", "Hide Video"))
 
 
 if __name__ == "__main__":

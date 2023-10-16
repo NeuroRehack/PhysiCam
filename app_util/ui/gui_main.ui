@@ -589,6 +589,7 @@
      <addaction name="actionGenerate_CSV_File"/>
      <addaction name="actionBlur_Faces"/>
      <addaction name="actionSmooth_Motion_Tracking"/>
+     <addaction name="actionHide_Video"/>
      <addaction name="separator"/>
      <addaction name="actionAdjust_Thresholds"/>
     </widget>
@@ -645,6 +646,14 @@
    </property>
    <property name="text">
     <string>Smooth Motion Tracking</string>
+   </property>
+  </action>
+  <action name="actionHide_Video">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Hide Video</string>
    </property>
   </action>
  </widget>
