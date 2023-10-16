@@ -48,7 +48,7 @@ __credits__ = [
 ]
 
 
-class MainThread(QtCore.QThread):
+class MainThread(QtCore.QThread, Config):
     """
     back-end worker thread: handles camera access, motion tracking
     and counting reps
@@ -96,52 +96,13 @@ class MainThread(QtCore.QThread):
     right_arm_reach_elbow_angle = 3
     right_arm_reach_shoulder_angle = 4
 
+
     def __init__(self, parent=None):
+        """"
+        init method: initialises the parent classes
+
+        """
         super().__init__(parent)
-
-        self._cap = None
-        self._is_recording = False
-        self._is_paused = False
-        self._is_camera_ready = False
-        self._pause_time = 0
-
-        self._tracking_movements = dict()
-        self._start_time = None
-        self._stop_time = None
-        self._session_time = None
-
-        self._curr_video_source = 0
-        self._source = None
-        self._shape = None
-        self._delay = 0
-
-        self._read_file = None
-        self._write_file = None
-        self._save_file = False      ### enable / disable "save to csv"
-        self._save_video = False    ### enable / disable saving video recordings
-        self._video_recording = None
-
-        self._filetime = Util.create_filename()
-        self._file_name = None
-        self._file_read = False
-        self._time_stamps = list()
-        self._index = 0
-
-        self._hide_video = False
-        self._filter = True         # lpf to improve motion tracking smoothness
-        self._blur_faces = False         
-        self._flip = False          ### flip video, TO-DO: save flip status to csv file
-        self._name_id = str()
-        self._curr_movement = str()
-
-        self._modes = set()
-
-        self._playback = None
-        self._timestamps = None
-
-        self._corr_mode = False      ### corr mode (use with motion sensors)
-
-        self._save_file = True if self._corr_mode else self._save_file
 
     def run(self):
         """
@@ -155,17 +116,11 @@ class MainThread(QtCore.QThread):
         """ frame rate (for debugging) """
         frame_times = {"curr time": 0, "prev time": 0}
 
-        """ init motion capture """
-        self._motion = Motion(model_complexity=1)
-
-        """ init hand tracker """
-        self._hand = Hand()
-
-        """ init aruco detector """
-        self._aruco = Aruco()
-
-        """ init face detector """
-        self._faces = Faces()
+        """ init motion capture classes """
+        self._motion = Motion(model_complexity=1)   # mediapipe: pose estimation
+        self._hand = Hand()         # mediapipe: hand tracking
+        self._faces = Faces()       # mediapipe: face mesh
+        self._aruco = Aruco()       # opencv: aruco detector
 
         """ add and init movements """
         self.add_movements()
@@ -174,8 +129,6 @@ class MainThread(QtCore.QThread):
         """ set image width and height to be emmitted to the main-window thread """
         img_width = 1280 - 128/8
         img_height = 720 - 72/8
-
-        prev_update_time = time.time()
 
         """ while camera / video file is opened """
         while self._cap.isOpened() and self._active:
@@ -202,15 +155,12 @@ class MainThread(QtCore.QThread):
                 """
                 self.start_stop_recording()
 
-                #if self._playback is not None:
-                    #self._playback = None
-
                 while not self._is_recording and self._source != Util.WEBCAM:
                     pass
 
                 continue
 
-            """ create blank frame """
+            """ create blank frame if 'hide_video' is True """
             self._blank_frame = np.zeros_like(self._img, dtype="uint8") if self._hide_video else None
 
             """ get frame dimensions """
@@ -222,6 +172,11 @@ class MainThread(QtCore.QThread):
             frame_rate = self.get_frame_rate(frame_times)
             self.frame_rate.emit(frame_rate)
 
+            """ 
+            corr_mode: used for timeseries correlation with sensors 
+            requires txt file with tmestamps corresponding to each frame
+            
+            """
             if self._corr_mode and self._file_name is not None and not self._file_read:
                 file_name = f'{self._file_name.split(".")[0].replace("videos", "time_stamps")}.txt'
                 try:
@@ -233,11 +188,7 @@ class MainThread(QtCore.QThread):
                     pass
 
             """ get the time since start of session """
-            if (
-                self._start_time is not None
-                and self._is_recording
-                and not self._is_paused
-            ):
+            if self._start_time is not None and self._is_recording and not self._is_paused:
                 
                 if self._save_video:
                     self._video_recording.parse_video_frame(self._img, self._session_time)
@@ -273,8 +224,7 @@ class MainThread(QtCore.QThread):
 
                 if self._playback is not None:
                     self._playback.parse_frame(
-                        self._img, self._session_time, self._timestamps, 
-                        overlay=False,
+                        self._img, self._session_time, self._timestamps, overlay=False,
                     )
 
                 self._img, begin, end, cropped, view = self._motion.track_motion(
@@ -297,35 +247,14 @@ class MainThread(QtCore.QThread):
                 """ parse movement data to file object """
                 if self._session_time is not None:
                     self._write_file.parse_movements(
-                        self._tracking_movements,
-                        self._pose_landmarks,
-                        self._session_time,
-                        self._img.shape,
-                        self._curr_movement,
-                        self._flip,
-                        corr_mode=self._corr_mode,
+                        self._tracking_movements, self._pose_landmarks, self._session_time,
+                        self._img.shape, self._curr_movement, self._flip, corr_mode=self._corr_mode,
                     )
 
-            #if self._hide_video:
             self.emit_qt_img(
                 self._blank_frame if self._hide_video and self._blank_frame  is not None else self._img, 
                 (width, height), (img_width, img_height)
             )
-            #else:
-                #self.emit_qt_img(self._img, (width, height), (img_width, img_height))
-
-            '''
-            """ flip image if accessed from webcam """
-            if self._source == Util.WEBCAM and self._flip:
-                self._img = cv.flip(self._img, 1)
-
-            """ emit image signal to the main-window thread to be displayed """
-            self._img = cv.cvtColor(self._img, cv.COLOR_BGR2RGB)
-            QtImg = QtGui.QImage(
-                self._img.data, width, height, QtGui.QImage.Format_RGB888
-            ).scaled(int(img_width), int(img_height), QtCore.Qt.KeepAspectRatio)
-            self.image.emit(QtImg)
-            '''
 
             """ maintain max frame rate of ~30fps (mainly for smooth video playback) """
             self._delay = self._delay + 0.01 if frame_rate > 30 else 0
@@ -469,18 +398,20 @@ class MainThread(QtCore.QThread):
             self._file_read = False
             print(f'video file: "{name}"')
 
+            self._playback = Playback()
+            self._timestamps = self._playback.read_timestamps(
+                f'{name.replace(".mp4", ".txt")}',
+            )
+
         elif file_type == Util.AVI:
             self._cap = self.get_video_capture(self._cap, name=name)
             self._file_read = False
             print(f'video file: "{name}"')
 
-            timestamps_fname = f'{name.replace(".avi", ".txt")}'
-            print(f'timestamps file: "{timestamps_fname}"')
-
             self._playback = Playback()
-            self._timestamps = self._playback.read_timestamps(timestamps_fname)
-
-            print(self._timestamps)
+            self._timestamps = self._playback.read_timestamps(
+                f'{name.replace(".avi", ".txt")}',
+            )
 
         elif file_type == Util.CSV:
             print(f'csv file: "{name}"')
@@ -495,21 +426,6 @@ class MainThread(QtCore.QThread):
             )
             #invalid_file_msg_box.setWindowIcon(get_icon())
             invalid_file_msg_box.exec()
-
-    def generate_file(self, generate):
-        """
-        callback function for the main-window thread to update whether or not
-        a csv file should be generated at the end of the session
-
-        """
-        self._save_file = generate
-
-    def blur_faces(self, blur):
-        """
-        callback function whether or not to blur faces
-
-        """
-        self._blur_faces = blur
 
     def handle_exit(self, event):
         """
@@ -550,29 +466,6 @@ class MainThread(QtCore.QThread):
         frame_times["prev time"] = frame_times["curr time"]
 
         return frame_rate
-
-    def get_recording_status(self):
-        """
-        gets current recording status
-        returns True if recording, else returns False
-        used in the main window thread to update gui
-
-        """
-        return self._is_recording
-
-    def get_input_source(self):
-        """
-        gets current input source (video or webcam)
-
-        """
-        return self._source
-    
-    def get_corr_mode(self):
-        """
-        return whether corr mode is enabled
-
-        """
-        return self._corr_mode
 
     def start_stop_recording(self):
         """
@@ -626,28 +519,6 @@ class MainThread(QtCore.QThread):
         else:
             self._pause_stop_time = time.time()
             self._pause_time += self._pause_stop_time - self._pause_start_time
-
-    def get_pause_status(self):
-        """
-        returns the current pause status
-        used by the main window thread to update gui
-
-        """
-        return self._is_paused
-
-    def update_name_id(self, name_id):
-        """
-        updated the name of id
-        called from the main window thread when user updated line edit
-
-        """
-        self._name_id = name_id
-
-    def update_movement(self, movement):
-        """
-        
-        """
-        self._curr_movement = movement
 
     def update_modes(self, mode, update=None):
         """
@@ -801,17 +672,6 @@ class MainThread(QtCore.QThread):
                 self._pose_landmarks, self._img, self._source,
             )
             self.sit_to_stand.emit(str(self._sit_to_stand_count))
-
-    def get_tracking_movements(self):
-        """
-        returns a dictionary containing all movements
-        called by the main-window thread to update gui
-
-        """
-        return self._tracking_movements.copy()
-    
-    def get_current_mode(self):
-        return self._modes.copy()
     
     def adjust_thresh(self, idx, value):
         match idx:
@@ -820,11 +680,41 @@ class MainThread(QtCore.QThread):
             case other:
                 pass
 
-    def toggle_filter(self):
-        self._filter = not self._filter
+    def get_tracking_movements(self): 
+        return self._tracking_movements.copy()
+    
+    def get_current_mode(self):
+        return self._modes.copy()
 
-    def toggle_video(self):
-        self._hide_video = not self._hide_video
+    def get_recording_status(self):
+        return self._is_recording
+
+    def get_input_source(self):
+        return self._source
+    
+    def get_corr_mode(self):
+        return self._corr_mode
+    
+    def get_pause_status(self):
+        return self._is_paused
+
+    def update_name_id(self, name_id):
+        self._name_id = name_id
+
+    def update_movement(self, movement):
+        self._curr_movement = movement
+
+    def generate_file(self, is_checked):
+        self._save_file = is_checked
+
+    def blur_faces(self, is_checked):
+        self._blur_faces = is_checked
+
+    def toggle_filter(self, is_checked):
+        self._filter = is_checked
+
+    def toggle_video(self, is_checked):
+        self._hide_video = is_checked
     
 
 class ThreshWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_thresh.Ui_MainWindow):
@@ -848,14 +738,12 @@ class ThreshWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_thresh.Ui_MainW
         self.sitToStand_hipAngle_horizontalSlider.valueChanged.connect(
             lambda value: self.sit_to_stand_hip_angle.emit(int(value))
         )
-
         self.leftArmReach_elbowAngle_horizontalSlider.valueChanged.connect(
             lambda value: self.left_arm_reach_elbow_angle.emit(int(value))
         )
         self.leftArmReach_shoulderAngle_horizontalSlider.valueChanged.connect(
             lambda value: self.left_arm_reach_shoulder_angle.emit(int(value))
         )
-
         self.rightArmReach_elbowAngle_horizontalSlider.valueChanged.connect(
             lambda value: self.right_arm_reach_elbow_angle.emit(int(value))
         )
@@ -884,30 +772,50 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         """ create the worker thread """
         self._main_thread = MainThread()
         self._main_thread.start()
-        # self._main_thread.setTerminationEnabled(True)
 
         """ connect back-end signals """
         self._main_thread.image.connect(self.update_frame)
         self._main_thread.frame_rate.connect(self.display_frame_rate)
-        self._main_thread.session_time.connect(self.display_session_time)
+        self._main_thread.session_time.connect(
+            lambda time: self.sessiontime_label.setText(f"Session Time: {self.format_time(time)}")
+        )
 
         """ camera source combo-box signals """
-        self._main_thread.camera_source.connect(self.get_source)
-        self._main_thread.refresh_source.connect(self.refresh_source)
-        self.source_comboBox.currentIndexChanged.connect(self.update_source)
-        #self.source_comboBox.highlighted.connect(self.get_source_channel)
+        self._main_thread.camera_source.connect(
+            lambda source: self.source_comboBox.addItem(str(source))
+        )
+        self._main_thread.refresh_source.connect(
+            lambda: self.source_comboBox.clear()
+        )
+        self.source_comboBox.currentIndexChanged.connect(
+            lambda text: self._main_thread.start_video_capture(source=int(text))
+        )
 
         """ connect motion traking signals """
-        self._main_thread.right_arm_ext.connect(self.display_right_arm_ext_count)
-        self._main_thread.left_arm_ext.connect(self.display_left_arm_ext_count)
-        self._main_thread.sit_to_stand.connect(self.display_sit_to_stand_count)
-
-        self._main_thread.right_steps.connect(self.display_right_steps_count)
-        self._main_thread.left_steps.connect(self.display_left_steps_count)
-        self._main_thread.standing_timer.connect(self.display_standing_timer)
-
-        self._main_thread.left_hand_count.connect(self.display_left_hand_count)
-        self._main_thread.right_hand_count.connect(self.display_right_hand_count)
+        self._main_thread.right_arm_ext.connect(
+            lambda count: self.right_arm_ext_count_label.setText(f"Right Arm Reach: {count}")
+        )
+        self._main_thread.left_arm_ext.connect(
+            lambda count: self.left_arm_ext_count_label.setText(f"Left Arm Reach: {count}")
+        )
+        self._main_thread.sit_to_stand.connect(
+            lambda count: self.sit_to_stand_count_label.setText(f"Sit to Stand: {count}")
+        )
+        self._main_thread.right_steps.connect(
+            lambda count: self.right_steps_count_label.setText(f"Right Steps: {count}")
+        )
+        self._main_thread.left_steps.connect(
+            lambda count: self.left_steps_count_label.setText(f"Left Steps: {count}")
+        )
+        self._main_thread.standing_timer.connect(
+            lambda timer: self.standing_time_label.setText(f"Standing Time: {self.format_time(timer)}")
+        )
+        self._main_thread.left_hand_count.connect(
+            lambda count: self.left_hand_count_label.setText(f"Left Hand: {count}")
+        )
+        self._main_thread.right_hand_count.connect(
+            lambda count: self.right_hand_count_label.setText(f"Right Hand: {count}")
+        )
 
         """ connect start/stop pushbutton """
         self.start_pushButton.clicked.connect(self._main_thread.start_stop_recording)
@@ -917,25 +825,48 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self.pause_pushButton.clicked.connect(self._main_thread.pause)
 
         """ connect line edit """
-        self.name_id_lineEdit.editingFinished.connect(self.update_name_id)
+        self.name_id_lineEdit.editingFinished.connect(
+            lambda: self._main_thread.update_name_id(self.name_id_lineEdit.text())
+        )
 
         """ connect movement label signals """
         self.movement_set_pushButton.clicked.connect(self.update_movement)
 
         """ connect action triggers """
         self.actionOpen.triggered.connect(self.open_file)
-        self.actionWebcam.triggered.connect(self.open_webcam)
         self.actionAdjust_Thresholds.triggered.connect(self.adjust_thresholds)
-
-        self.actionGenerate_CSV_File.triggered.connect(self.generate_file)
-        self.actionBlur_Faces.triggered.connect(self.blur_faces)
-        self.actionSmooth_Motion_Tracking.triggered.connect(self._main_thread.toggle_filter)
-        self.actionHide_Video.triggered.connect(self._main_thread.toggle_video)
+        self.actionWebcam.triggered.connect(
+            lambda: self._main_thread.start_video_capture()
+        )
+        self.actionGenerate_CSV_File.triggered.connect(
+            lambda: self._main_thread.generate_file(self.actionGenerate_CSV_File.isChecked())
+        )
+        self.actionBlur_Faces.triggered.connect(
+            lambda: self._main_thread.blur_faces(self.actionBlur_Faces.isChecked())
+        )
+        self.actionSmooth_Motion_Tracking.triggered.connect(
+            lambda: self._main_thread.toggle_filter(self.actionSmooth_Motion_Tracking.isChecked())
+        )
+        self.actionHide_Video.triggered.connect(
+            lambda: self._main_thread.toggle_video(self.actionHide_Video.isChecked())
+        )
 
         """ connect check-box signals """
-        self.motion_tracking_checkBox.stateChanged.connect(self.update_motion_tracking_mode)
-        self.steps_tracking_checkBox.stateChanged.connect(self.update_steps_tracking_mode)
-        self.hand_tracking_checkBox.stateChanged.connect(self.update_hand_tracking_mode)
+        self.motion_tracking_checkBox.stateChanged.connect(
+            lambda: self.update_tracking_mode(
+                self.motion_tracking_checkBox, self._main_thread.motion_tracking_mode,
+            )
+        )
+        self.steps_tracking_checkBox.stateChanged.connect(
+            lambda: self.update_tracking_mode(
+                self.steps_tracking_checkBox, self._main_thread.steps_tracking_mode,
+            )
+        )
+        self.hand_tracking_checkBox.stateChanged.connect(
+            lambda: self.update_tracking_mode(
+                self.hand_tracking_checkBox, self._main_thread.hand_tracking_mode,
+            )
+        )
 
         """ enable default tracking mode(s) """
         if self._main_thread.get_corr_mode():
@@ -944,20 +875,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             self.motion_tracking_checkBox.setChecked(True)
 
         self._frame_rates = []
-
-    def mousePressEvent(self, event):
-        """
-        get mouse press event
-
-        """
-        print(f"x: {event.pos().x()}, y: {event.pos().y()}")
-
-    def closeEvent(self, event):
-        """
-        callback for when the user exit the program
-
-        """
-        self._main_thread.handle_exit(event)
 
     def update_frame(self, img):
         """
@@ -974,7 +891,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
 
         if self._main_thread.get_recording_status():
             self.start_pushButton.setText("Stop")
-            #self.name_id_lineEdit.setEnabled(False)
 
             if self._main_thread.get_input_source() == Util.WEBCAM:
                 self.pause_pushButton.setVisible(True)
@@ -982,7 +898,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         else:
             self.start_pushButton.setText("Start")
             self.pause_pushButton.setVisible(False)
-            #self.name_id_lineEdit.setEnabled(True)
 
         if self._main_thread.get_pause_status():
             self.pause_pushButton.setText("Resume")
@@ -1021,35 +936,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             self.framerate_label.setText(
                 f"Frame Rate: {round(mean(self._frame_rates), 1)} fps"
             )
-            self._frame_rates = []
-
-    def display_session_time(self, time):
-        """
-        displays the time since the start of session
-        formatted as "h:mm:ss"
-
-        """
-        self.sessiontime_label.setText(f"Session Time: {self.format_time(time)}")
-
-    def get_source(self, source):
-        """
-        callback for adding webcam source channels to combo-box
-        used at the start of the program to get all available channels
-
-        """
-        self.source_comboBox.addItem(str(source))
-
-    def update_source(self, text):
-        """
-        callback for updating the current webcam source channel
-        used when switching between webcams
-
-        """
-        self._main_thread.start_video_capture(source=int(text))
-
-    def refresh_source(self):
-        self.source_comboBox.clear()
-        #self._main_thread.get_source_channel()
+            self._frame_rates = []    
 
     def update_start_pushButton(self):
         """
@@ -1068,13 +955,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             for name, movement in self._movements.items():
                 print(f"{name}: {movement.get_tracking_status()}")
             print("")
-
-    def update_name_id(self):
-        """
-        get the patient name or id and updated information in the worker thread
-
-        """
-        self._main_thread.update_name_id(self.name_id_lineEdit.text())
 
     def update_movement(self):
         """
@@ -1102,25 +982,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._file_name = QtWidgets.QFileDialog.getOpenFileName(self, "Open File", "./")
         self._main_thread.get_file(self._file_name[0])
 
-    def open_webcam(self):
-        """
-        callback for when the webcam action is triggered from the file menu
-        starts the video capture from the webcam in the main-worker thread
-
-        """
-        self._main_thread.start_video_capture()
-
-    def generate_file(self):
-        """
-        callback for when the generate csv file action is triggeres from the file menu
-        passes the current "generate file" status to the main-worker thread
-
-        """
-        self._main_thread.generate_file(self.actionGenerate_CSV_File.isChecked())
-
-    def blur_faces(self):
-        self._main_thread.blur_faces(self.actionBlur_Faces.isChecked())
-
     def adjust_thresholds(self):
         self._thresh_window = ThreshWindow()
         self._thresh_window.show()
@@ -1130,7 +991,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
                 self._main_thread.sit_to_stand_hip_angle, value,
             )
         )
-
         self._thresh_window.left_arm_reach_elbow_angle.connect(
             lambda value: self._main_thread.adjust_thresh(
                 self._main_thread.left_arm_reach_elbow_angle, value,
@@ -1141,7 +1001,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
                 self._main_thread.left_arm_reach_shoulder_angle, value,
             )
         )
-
         self._thresh_window.right_arm_reach_elbow_angle.connect(
             lambda value: self._main_thread.adjust_thresh(
                 self._main_thread.right_arm_reach_elbow_angle, value,
@@ -1163,42 +1022,11 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         else:
             self._main_thread.update_modes(mode, update="rm")
 
-    def update_motion_tracking_mode(self):
-        self.update_tracking_mode(self.motion_tracking_checkBox, self._main_thread.motion_tracking_mode)
+    def mousePressEvent(self, event):
+        print(f"x: {event.pos().x()}, y: {event.pos().y()}")
 
-    def update_steps_tracking_mode(self):
-        self.update_tracking_mode(self.steps_tracking_checkBox, self._main_thread.steps_tracking_mode)
-
-    def update_hand_tracking_mode(self):
-        self.update_tracking_mode(self.hand_tracking_checkBox, self._main_thread.hand_tracking_mode)
-
-    """ 
-    main-window methods for updating the count values for counting movements
-
-    """
-    def display_right_arm_ext_count(self, count):
-        self.right_arm_ext_count_label.setText(f"Right Arm Reach: {count}")
-
-    def display_left_arm_ext_count(self, count):
-        self.left_arm_ext_count_label.setText(f"Left Arm Reach: {count}")
-
-    def display_sit_to_stand_count(self, count):
-        self.sit_to_stand_count_label.setText(f"Sit to Stand: {count}")
-        
-    def display_right_steps_count(self, count):
-        self.right_steps_count_label.setText(f"Right Steps: {count}")
-
-    def display_left_steps_count(self, count):
-        self.left_steps_count_label.setText(f"Left Steps: {count}")
-
-    def display_standing_timer(self, timer):
-        self.standing_time_label.setText(f"Standing Time: {self.format_time(timer)}")
-
-    def display_left_hand_count(self, count):
-        self.left_hand_count_label.setText(f"Left Hand: {count}")
-
-    def display_right_hand_count(self, count):
-        self.right_hand_count_label.setText(f"Right Hand: {count}")
+    def closeEvent(self, event):
+        self._main_thread.handle_exit(event)
         
 
 def get_icon():

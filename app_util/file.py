@@ -73,16 +73,26 @@ class File:
     
 
 class VideoFile(File):
+    """
+    class for parsing and saving video frames
+    only to be used in testing
 
+    """
     def __init__(self, save=True):
+        """
+        init method
 
+        """
         super().__init__(save)
 
         self._video_out = None
         self._timestamps = list()
 
     def start_video(self, filetime, shape):
+        """
+        start saving to a new video file
 
+        """
         h, w, _ = shape
 
         if not self._save_file:
@@ -92,18 +102,25 @@ class VideoFile(File):
         if not os.path.exists(self.video_path):
             os.mkdir(self.video_path)
 
+        """ create a sub-dir to store the video file and timestamps file """
         if not os.path.exists(f"{self.video_path}/{filetime}"):
             os.mkdir(f"{self.video_path}/{filetime}")
 
+        """ create the video writer object """
         self._fname = f"{self.video_path}/{filetime}/{filetime}"
         self._video_out = cv.VideoWriter(
             f"{self._fname}.avi", cv.VideoWriter_fourcc(*'XVID'), 30, (w, h),
         )
 
+        """ init the timestamps list """
         self._timestamps = list()
 
     def parse_video_frame(self, frame, curr_time):
-
+        """
+        method to parse and save each frame of the video
+        also saves the corresponding timestamp to the timestamps file
+        
+        """
         if not self._save_file:
             return
 
@@ -116,7 +133,10 @@ class VideoFile(File):
             pass
 
     def end_video(self):
-
+        """
+        method to handle the end of saving a video
+        
+        """
         if not self._save_file:
             return
 

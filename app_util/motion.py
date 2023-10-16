@@ -175,9 +175,7 @@ class Motion():
 
             """ calculate positional adjustment needed for the cropped frame """
             adjust_x, adjust_y, grad_x, grad_y = get_adjustments(
-                self.crop_begin, 
-                self.crop_end, 
-                (height, width),
+                self.crop_begin, self.crop_end, (height, width),
             )
         else:
             img_crop = img
@@ -199,9 +197,7 @@ class Motion():
                 """ apply positional adjustment for the cropped frame """
                 if self.cropped:
                     landmark.x, landmark.y = apply_adjustments(
-                        (landmark.x, landmark.y),
-                        (adjust_x, adjust_y),
-                        (grad_x, grad_y),
+                        (landmark.x, landmark.y), (adjust_x, adjust_y), (grad_x, grad_y),
                     )
 
                 x, y, z = int(landmark.x * width), int(landmark.y * height), int(landmark.z * 100)
@@ -274,18 +270,10 @@ class Motion():
                 img = circular_blur(img, rect_min_x, rect_max_x, rect_min_y, rect_max_y)
 
             """ draw the bounding box """
-            self._landmark_x_min = min([lm[Util.X] for lm in lm_pixels]) - int(
-                self._border[Util.X] * width
-            )
-            self._landmark_x_max = max([lm[Util.X] for lm in lm_pixels]) + int(
-                self._border[Util.X] * width
-            )
-            self._landmark_y_min = min([lm[Util.Y] for lm in lm_pixels]) - int(
-                self._border[Util.Y] * height
-            )
-            self._landmark_y_max = max([lm[Util.Y] for lm in lm_pixels]) + int(
-                self._border[Util.Y] * height
-            )
+            self._landmark_x_min = min([lm[Util.X] for lm in lm_pixels]) - int(width*self._border[Util.X])
+            self._landmark_x_max = max([lm[Util.X] for lm in lm_pixels]) + int(width*self._border[Util.X])
+            self._landmark_y_min = min([lm[Util.Y] for lm in lm_pixels]) - int(height*self._border[Util.Y])
+            self._landmark_y_max = max([lm[Util.Y] for lm in lm_pixels]) + int(height*self._border[Util.Y])
 
             x_min = max([self._landmark_x_min, 0])
             y_min = max([self._landmark_y_min, 0])
@@ -344,14 +332,9 @@ class Motion():
         """
         if self._results.pose_landmarks:
 
-            """ draw connections between detected points """
-            '''self._pose_param_dict["mp draw"].draw_landmarks(
-                img,
-                self._results.pose_landmarks,
-                self._pose_param_dict["mp pose"].POSE_CONNECTIONS,
-            )'''
-
-            self.draw_connections(img, landmarks, self._pose_param_dict["mp pose"].POSE_CONNECTIONS)
+            self.draw_connections(
+                img, landmarks, self._pose_param_dict["mp pose"].POSE_CONNECTIONS
+            )
 
             """ highlight important points """
             for id, x, y, z, vis, vel in landmarks:
@@ -372,7 +355,10 @@ class Motion():
         cv.rectangle(img, crop_begin, crop_end, Util.BLUE, Util.BORDER_WIDTH)
 
     def draw_connections(self, img, landmarks, connections):
+        """
+        draws the connections between points
 
+        """
         for start, end in connections:
             try:
                 start_x, start_y = landmarks[start][1:3]
@@ -430,8 +416,7 @@ class Hand():
         """
         height, width, _ = img.shape
         img_crop = img[
-            begin[Util.Y] : end[Util.Y],
-            begin[Util.X] : end[Util.X],
+            begin[Util.Y]:end[Util.Y], begin[Util.X]:end[Util.X],
         ]
 
         """ calculate positional adjustment needed for the cropped frame """
@@ -472,17 +457,12 @@ class Hand():
                 for id, landmark in enumerate(hand_landmarks.landmark):
 
                     landmark.x, landmark.y = apply_adjustments(
-                        (landmark.x, landmark.y),
-                        (adjust_x, adjust_y),
-                        (grad_x, grad_y),
+                        (landmark.x, landmark.y), (adjust_x, adjust_y), (grad_x, grad_y),
                     )
 
                     lm = (
-                        id, 
-                        int(landmark.x * width), 
-                        int(landmark.y * height),
-                        int(landmark.z * 200),
-                        int(landmark.visibility * 100),
+                        id, int(landmark.x * width), int(landmark.y * height),
+                        int(landmark.z * 200), int(landmark.visibility * 100),
                     )
                     landmarks.append(lm)
 
@@ -531,8 +511,7 @@ class Faces():
         results = self._faces.process(img)
         img = cv.cvtColor(img, cv.COLOR_RGB2BGR)
 
-        self._start = (0, 0)
-        self._end = (0, 0)
+        self._start, self._end = (0, 0), (0, 0)
         if results.multi_face_landmarks:
             for face_landmarks in results.multi_face_landmarks:
                 x, y = list(), list()
@@ -581,23 +560,28 @@ def apply_adjustments(lm, adjust, grad):
 
 
 def circular_blur(img, *args):
+    """
+    draws a circular blurred ares in the frame
+    used to blur out faces for privacy reasons
+
+    """
     min_x, max_x, min_y, max_y = args
 
     try:
-        roi = img[min_y:max_y, min_x:max_x]
-        blur = cv.medianBlur(roi, 99)
+        roi = img[min_y:max_y, min_x:max_x]     # gets the region of interest based on face position
+        blur = cv.medianBlur(roi, 99)           # applies blur locally to rectangular roi
 
-        mask = np.zeros_like(roi)
-        mask_h, mask_w = mask.shape[0:2]
-        centre = mask_w // 2, mask_h // 2
-        radii = int(min([mask_h, mask_w]) // 2)
+        mask = np.zeros_like(roi)               # create a mask: same shape as the roi
+        mask_h, mask_w = mask.shape[0:2]        # get the h and w of the mask
+        centre = mask_w // 2, mask_h // 2       # get the centre point of the mask
+        radii = int(min([mask_h, mask_w]) // 2) # get the closest distance from centre to edge of mask
 
-        mask = cv.circle(mask, centre, radii, Util.WHITE, -1)
-        mask = cv.bitwise_and(blur, mask)
+        mask = cv.circle(mask, centre, radii, Util.WHITE, -1)   # draw a white circle on the mask
+        mask = cv.bitwise_and(blur, mask)       # 'bitwise and' the circular mask and the rectangular roi
 
-        roi = cv.circle(roi, centre, radii, Util.BLACK, -1)
-        roi = cv.bitwise_or(roi, mask)
-        img[min_y:max_y, min_x:max_x] = roi
+        roi = cv.circle(roi, centre, radii, Util.BLACK, -1)     # draw a black circle on the og roi 
+        roi = cv.bitwise_or(roi, mask)          # 'bitwise or' the blurred mask and the blacked-out roi
+        img[min_y:max_y, min_x:max_x] = roi     # replace rectangular roi with new roi that contains blur
     
     except Exception as err:
         pass

@@ -12,6 +12,7 @@ see "doc/config.md" for more details
 
 """
 
+from .util import Util
 from .motion import Motion
 
 
@@ -26,54 +27,53 @@ __credits__ = [
 ]
 
 
-class Config:
+class Config():
+    """
+    cofiguration class: inherited by the main thread class
 
     """
-    right arm extension thresholds
-    - wrist-elbow-shoulder angle: 130 degrees
-    - elbow-shoulder-hip angle: 30 degrees
+    def __init__(self):
 
-    """
-    RIGHT_ARM_EXT_ANGULAR_THRESH = [
-        (Motion.right_wrist, Motion.right_elbow, Motion.right_shoulder, 150),
-        (Motion.right_elbow, Motion.right_shoulder, Motion.right_hip, 50),
-    ]
+        self._cap = None
+        self._is_recording = False
+        self._is_paused = False
+        self._is_camera_ready = False
+        self._pause_time = 0
 
-    RIGHT_ARM_EXT_POSITIONAL_THRESH = [
-        (Motion.right_elbow, Motion.right_shoulder, ">", 0.1),
-    ]
+        self._tracking_movements = dict()
+        self._start_time = None
+        self._stop_time = None
+        self._session_time = None
 
+        self._curr_video_source = 0
+        self._source = None
+        self._shape = None
+        self._delay = 0
 
-    """
-    left arm extension thresholds
-    - wrist-elbow-shoulder angle: 130 degrees
-    - elbow-shoulder-hip angle: 30 degrees
+        self._read_file = None
+        self._write_file = None
+        self._save_file = False      ### enable / disable "save to csv"
+        self._save_video = False    ### enable / disable saving video recordings
+        self._video_recording = None
 
-    """
-    LEFT_ARM_EXT_ANGULAR_THRESH = [
-        (Motion.left_wrist, Motion.left_elbow, Motion.left_shoulder, 150),
-        (Motion.left_elbow, Motion.left_shoulder, Motion.left_hip, 50),
-    ]
+        self._filetime = Util.create_filename()
+        self._file_name = None
+        self._file_read = False
+        self._time_stamps = list()
+        self._index = 0
 
-    LEFT_ARM_EXT_POSITIONAL_THRESH = [
-        (Motion.left_elbow, Motion.left_shoulder, ">", 0.1),
-    ]
+        self._hide_video = False
+        self._filter = True         # lpf to improve motion tracking smoothness
+        self._blur_faces = False         
+        self._flip = False          ### flip video, TO-DO: save flip status to csv file
+        self._name_id = str()
+        self._curr_movement = str()
 
+        self._modes = set()
 
-    """
-    sit to stand thresholds
-    - ankle-knee-hip angle: 150 degrees
-    - knee-hip-shoulder angle: 150 degrees
+        self._playback = None
+        self._timestamps = None
 
-    """
-    SIT_TO_STAND_ANGULAR_THRESH = [
-        (Motion.right_ankle, Motion.right_knee, Motion.right_hip, 150),
-        (Motion.left_ankle, Motion.left_knee, Motion.left_hip, 150),
-        (Motion.right_knee, Motion.right_hip, Motion.right_shoulder, 150),
-        (Motion.left_knee, Motion.left_hip, Motion.left_shoulder, 150),
-    ]
+        self._corr_mode = False      ### corr mode (use with motion sensors)
 
-    SIT_TO_STAND_POSITIONAL_THRESH = [
-        (Motion.left_knee, Motion.left_hip, ">", 0.2),
-        (Motion.right_knee, Motion.right_hip, ">", 0.2),
-    ]
+        self._save_file = True if self._corr_mode else self._save_file
