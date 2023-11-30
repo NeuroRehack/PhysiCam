@@ -29,7 +29,7 @@
 1.  Create python virtual environment: `py -m venv venv`
 2.  Activate virtual environment: `.\\venv\Scripts\activate`
 3.  Install dependencies: `py -m pip install -r req.txt`
-4.  Run the program: `py src/main.py`
+4.  Run the program: `py main.py`
 5.  To deactivate virtual environment: `deactivate`
 
 ## Graphical User Interface
