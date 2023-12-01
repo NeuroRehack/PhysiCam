@@ -1,8 +1,8 @@
-# PyCoral API examples
+# PyCoral Movenet Video Example
 
-This directory contains several examples that show how to use the
+This directory contains examples that show how to use the
 [PyCoral API](https://coral.ai/docs/edgetpu/api-intro/) to perform
-inference or on-device transfer learning.
+inference or on-device pose estimation using the pre-trained Movenet model.
 
 ## Run the example
 
@@ -17,9 +17,7 @@ a Coral accelerator, then onto the host system):
     ```
 
 3.  Download the required model and other files required to run each sample,
-using the `install_requirements.sh` script. Pass this script the filename you
-want to run and it will download just the files for that example. Or exclude the
-filename to download the files for all examples:
+using the `install_requirements.sh` script.
 
     ```
     bash install_requirements.sh
@@ -28,7 +26,7 @@ filename to download the files for all examples:
 4.  Connect USB Accelerator to the host device.
 
 5.  Then run the example command shown at the top of the `.py` file to run
-the code (using the files you just downloaded). 
+the code. 
 
 <!--
 Some examples also require

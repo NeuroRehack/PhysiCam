@@ -36,13 +36,14 @@ movenet landmarks
 13: 'left_knee', 14: 'right_knee', 15: 'left_ankle', 16: 'right_ankle'
 """
 
-import sys, time, os
+import time
 
 from pycoral.adapters import common
 from pycoral.utils.edgetpu import make_interpreter
 
 import cv2 as cv
 from statistics import mean
+
 
 NUM_KEYPOINTS = 17
 
@@ -52,6 +53,7 @@ KEYPOINT_CONNECTIONS = [
     (0, 1), (0, 2), (1, 3), (2, 4), (5, 7), (7, 9), (6, 8), (8, 10), (5, 6),
     (5, 11), (6, 12), (11, 12), (11, 13), (13, 15), (12, 14), (14, 16),
 ]
+
 
 def display_frame_rate(img, frame_times):
     frame_times["curr time"] = time.time()
@@ -69,24 +71,29 @@ def main():
     #model_path = "models/posenet/mobilenet/posenet_mobilenet_v1_075_481_641_16_quant_decoder_edgetpu.tflite"
     #model_path = "models/posenet/resnet/posenet_resnet_50_416_288_16_quant_edgetpu_decoder.tflite"
 
+    """ create interpreter and load model """
     interpreter = make_interpreter(model_path)
     interpreter.allocate_tensors()
 
     """ open video or webcam """
-    #cap = cv.VideoCapture("path_to_video.mp4")
     cap = cv.VideoCapture(0, cv.CAP_DSHOW)
+    #cap = cv.VideoCapture("path_to_video.mp4")
     cap.set(cv.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, 720)
 
     """ frame rate (for debugging) """
     frame_times = {"curr time": 0, "prev time": 0}
 
-    lpf_buf_x = {key: list() for key in range(17)}
-    lpf_buf_y = {key: list() for key in range(17)}
-    lpf_buf_vis = {key: list() for key in range(17)}
-    lpf_buf_len = 5
-    x_mean, y_mean, vis_mean = 0, 0, 0
+    x_mean, y_mean = -1, -1
+    lpf_buf_x = {key: list() for key in range(NUM_KEYPOINTS)}
+    lpf_buf_y = {key: list() for key in range(NUM_KEYPOINTS)}
 
+    lpf_buf_len = 5
+    lpf_mean_len = 5*lpf_buf_len
+    lpf_buf_x_mean = {key: list() for key in range(NUM_KEYPOINTS)}
+    lpf_buf_y_mean = {key: list() for key in range(NUM_KEYPOINTS)}
+    
+    """ main while loop """
     while cap.isOpened():
         ret, img = cap.read()
         if ret == False:
@@ -96,45 +103,59 @@ def main():
         """ display frame rate """
         img = display_frame_rate(img, frame_times)
 
+        """ resize image and perform antialiasing using cv.INTER_AREA """
         interpreter_size = common.input_size(interpreter)
         resized_img = cv.resize(img, (interpreter_size[0], interpreter_size[1]), interpolation=cv.INTER_AREA)
         common.set_input(interpreter, resized_img)
         interpreter.invoke()
 
+        """ get inference results """
         pose = common.output_tensor(interpreter, 0).copy()
-        pose = pose.reshape(17, 3)
+        pose = pose.reshape(NUM_KEYPOINTS, 3)
         lpf_pose = list()
         
+        """ perform processing on raw data """
         h, w, _ = img.shape
         for i, lm in enumerate(pose):
             y, x, vis = lm
 
-            if vis > 0.5:
+            if vis > VIS_THRESH:
                 lpf_buf_x[i].append(x)
                 lpf_buf_y[i].append(y)
-                lpf_buf_vis[i].append(vis)
 
             if len(lpf_buf_x[i]) >= lpf_buf_len:
                 lpf_buf_x[i] = lpf_buf_x[i][-lpf_buf_len:]
                 x_mean = mean(lpf_buf_x[i])
+                
+                lpf_buf_x_mean[i].append(x_mean)
+                if len(lpf_buf_x_mean[i]) >= lpf_mean_len:
+                    lpf_buf_x_mean[i] = lpf_buf_x_mean[i][-lpf_mean_len:]
 
             if len(lpf_buf_y[i]) >= lpf_buf_len:
                 lpf_buf_y[i] = lpf_buf_y[i][-lpf_buf_len:]
                 y_mean = mean(lpf_buf_y[i])
 
-            if len(lpf_buf_vis[i]) >= lpf_buf_len:
-                lpf_buf_vis[i] = lpf_buf_vis[i][-lpf_buf_len:]
-                vis_mean = mean(lpf_buf_vis[i])
+                lpf_buf_y_mean[i].append(y_mean)
+                if len(lpf_buf_y_mean[i]) >= lpf_mean_len:
+                    lpf_buf_y_mean[i] = lpf_buf_y_mean[i][-lpf_mean_len:]
                 
-            cv.circle(img, (int(x_mean*w), int(y_mean*h)), 8, (0, 0, 255), cv.FILLED)
-            lpf_pose.append([int(x_mean*w), int(y_mean*h)])
+            """ show landmark points """
+            if len(set(lpf_buf_x_mean[i])) != 1 and len(set(lpf_buf_x_mean[i])) != 1:
+                cv.circle(img, (int(x_mean*w), int(y_mean*h)), 8, (0, 0, 255), cv.FILLED)
+                lpf_pose.append([int(x_mean*w), int(y_mean*h)])
+            else:
+                lpf_pose.append([-1, -1])
 
+        if len(lpf_pose) != 0:
 
-        for start, end in KEYPOINT_CONNECTIONS:
-            start_x, start_y = int(lpf_pose[start][0]), int(lpf_pose[start][1])
-            end_x, end_y = int(lpf_pose[end][0]), int(lpf_pose[end][1])
-            cv.line(img, (start_x, start_y), (end_x, end_y), (255, 255, 255), 2)
-        
+            """ show landmark connections """
+            for i, (start, end) in enumerate(KEYPOINT_CONNECTIONS):
+
+                start_x, start_y = int(lpf_pose[start][0]), int(lpf_pose[start][1])
+                end_x, end_y = int(lpf_pose[end][0]), int(lpf_pose[end][1])
+
+                if -1 not in [start_x, start_y, end_x, end_y]:
+                    cv.line(img, (start_x, start_y), (end_x, end_y), (255, 255, 255), 2)
 
         """ flip frame horizontally """
         img = cv.flip(img, 1)
