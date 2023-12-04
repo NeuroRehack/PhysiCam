@@ -232,7 +232,7 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>568</width>
+            <width>573</width>
             <height>1162</height>
            </rect>
           </property>
@@ -590,6 +590,7 @@
      <addaction name="actionBlur_Faces"/>
      <addaction name="actionSmooth_Motion_Tracking"/>
      <addaction name="actionHide_Video"/>
+     <addaction name="actionCoral_TPU"/>
      <addaction name="separator"/>
      <addaction name="actionAdjust_Thresholds"/>
     </widget>
@@ -654,6 +655,14 @@
    </property>
    <property name="text">
     <string>Hide Video</string>
+   </property>
+  </action>
+  <action name="actionCoral_TPU">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Coral TPU</string>
    </property>
   </action>
  </widget>

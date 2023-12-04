@@ -1,4 +1,5 @@
 import cv2 as cv
+import numpy as np
 from statistics import mean
 from pycoral.adapters import common
 from pycoral.utils.edgetpu import make_interpreter
@@ -29,12 +30,29 @@ class Coral():
         self._lpf_buf_x_mean = {key: list() for key in range(self.num_keypoints)}
         self._lpf_buf_y_mean = {key: list() for key in range(self.num_keypoints)}
 
+        self._print_once = True
     
     def get_landmarks(self, img):
+        interpreter_size = common.input_size(self._interpreter)
 
         """ resize image and perform antialiasing using cv.INTER_AREA """
-        interpreter_size = common.input_size(self._interpreter)
-        resized_img = cv.resize(img, (interpreter_size[0], interpreter_size[1]), interpolation=cv.INTER_AREA)
+        num = 5
+
+        x = np.linspace(img.shape[0], interpreter_size[0], num)
+        y = np.linspace(img.shape[1], interpreter_size[1], num)
+        if self._print_once: print(x, y)
+
+        resized_img = img
+        for i in range(num):
+            resized_img = cv.resize(
+                img, (int(x[i]), int(y[i])), interpolation=cv.INTER_AREA
+            )
+            if self._print_once: print(resized_img.shape)
+
+        cv.imshow("resized", resized_img)
+        key = cv.waitKey(1)
+        self._print_once = False
+
         common.set_input(self._interpreter, resized_img)
         self._interpreter.invoke()
 
@@ -77,7 +95,7 @@ class Coral():
 
         h, w, _ = img.shape
         x, y = landmarks
-        for i, lm in enumerate(self._landmarks):
+        for i in range(self.num_keypoints):
 
             """ show landmark points """
             if len(set(x[i])) > 1 and len(set(y[i])) > 1:

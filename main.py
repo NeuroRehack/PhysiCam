@@ -21,7 +21,7 @@ import numpy as np
 from PyQt5 import QtCore, QtWidgets, QtGui
 from statistics import mean
 from coral.coral import Coral
-from app_util import gui, gui_main, gui_thresh
+from app_util import gui_main, gui_thresh
 from app_util.config import Config
 from app_util.util import Util
 from app_util.motion import Motion, Hand, Faces
@@ -120,10 +120,8 @@ class MainThread(QtCore.QThread, Config):
         frame_times = {"curr time": 0, "prev time": 0}
 
         """ init motion capture classes """
-        self._motion = Motion(model_complexity=1)   # mediapipe: pose estimation
-        self._hand = Hand()         # mediapipe: hand tracking
-        self._faces = Faces()       # mediapipe: face mesh
-        self._aruco = Aruco()       # opencv: aruco detector
+        self.set_motion_tracking(self._tpu, init=True)
+        self._toggle_motion_tracking_method = False
 
         """ add and init movements """
         self.add_movements()
@@ -169,7 +167,9 @@ class MainThread(QtCore.QThread, Config):
             """ get frame dimensions """
             self._shape = self._img.shape
             height, width, _ = self._shape
-            self._motion.crop = {"start": Util.INIT, "end": (width, height)}
+
+            if not self._tpu:
+                self._motion.crop = {"start": Util.INIT, "end": (width, height)}
 
             """ display frame rate """
             frame_rate = self.get_frame_rate(frame_times)
@@ -230,22 +230,32 @@ class MainThread(QtCore.QThread, Config):
                         self._img, self._session_time, self._timestamps, overlay=False,
                     )
 
-                self._img, begin, end, cropped, view = self._motion.track_motion(
-                    self._img, self._pose_landmarks, self._session_time, self._blur_faces,
-                    debug=False, dynamic=True, filter=self._filter,
-                )
+                if self._tpu:
+                    self._tpu_landmarks = self._coral.get_landmarks(self._img)
+                else:
+                    self._img, begin, end, cropped, view = self._motion.track_motion(
+                        self._img, self._pose_landmarks, self._session_time, self._blur_faces,
+                        debug=False, dynamic=True, filter=self._filter,
+                    )
 
                 """ find faces """
                 if self._blur_faces:
                     self._img = self._faces.find_faces(self._img)
 
                 """ count the number of reps for each movement """
-                self.count_movements(cropped, begin, end, view)
+                if self._tpu:
+                    pass
+                else:
+                    self.count_movements(cropped, begin, end, view)
 
                 """ draw stick figure overlay (draw after hand detection in "count_movements()) """
-                self._motion.draw(
-                    self._blank_frame if self._hide_video and self._blank_frame is not None else self._img, 
-                    self._pose_landmarks, begin, end)
+                if self._tpu:
+                    self._img = self._coral.display_landmarks(self._img, self._tpu_landmarks)
+                else:
+                    self._motion.draw(
+                        self._blank_frame if self._hide_video and self._blank_frame is not None else self._img, 
+                        self._pose_landmarks, begin, end
+                    )
 
                 """ parse movement data to file object """
                 if self._session_time is not None:
@@ -267,6 +277,10 @@ class MainThread(QtCore.QThread, Config):
             while not self._is_recording and self._source != Util.WEBCAM:
                 pass
 
+            if self._toggle_motion_tracking_method == True:
+                self._tpu = not self._tpu
+                self._toggle_motion_tracking_method = False
+
         """ handles program exit """
         cv.destroyAllWindows()
         self._cap.release()
@@ -278,6 +292,19 @@ class MainThread(QtCore.QThread, Config):
         """
         self._active = False
         self.wait()
+
+    def set_motion_tracking(self, tpu, init=False):
+        if tpu:
+            self._coral = Coral()
+        else:
+            self._motion = Motion(model_complexity=1)   # mediapipe: pose estimation
+        
+        self._hand = Hand()         # mediapipe: hand tracking
+        self._faces = Faces()       # mediapipe: face mesh
+        self._aruco = Aruco()       # opencv: aruco detector
+
+        if not init:
+            self._toggle_motion_tracking_method = True
 
     def emit_qt_img(self, img, size, img_size):
 
@@ -849,6 +876,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         )
         self.actionHide_Video.triggered.connect(
             lambda: self._main_thread.toggle_video(self.actionHide_Video.isChecked())
+        )
+        self.actionCoral_TPU.triggered.connect(
+            lambda: self._main_thread.set_motion_tracking(self.actionCoral_TPU.isChecked())
         )
 
         """ connect check-box signals """
