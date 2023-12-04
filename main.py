@@ -20,6 +20,7 @@ import cv2 as cv
 import numpy as np
 from PyQt5 import QtCore, QtWidgets, QtGui
 from statistics import mean
+from coral.coral import Coral
 from app_util import gui, gui_main, gui_thresh
 from app_util.config import Config
 from app_util.util import Util
@@ -109,6 +110,8 @@ class MainThread(QtCore.QThread, Config):
         main worker thread
 
         """
+        print(f"Python Version Info: {sys.version}")
+
         self._active = True
         self.get_source_channel()
         self.start_video_capture()
@@ -674,11 +677,8 @@ class MainThread(QtCore.QThread, Config):
             self.sit_to_stand.emit(str(self._sit_to_stand_count))
     
     def adjust_thresh(self, idx, value):
-        match idx:
-            case self.left_arm_reach_elbow_angle:
-                self._left_arm_ext.left_arm_reach_elbow_angle = value
-            case other:
-                pass
+        if idx == self.left_arm_reach_elbow_angle:
+            self._left_arm_ext.left_arm_reach_elbow_angle = value
 
     def get_tracking_movements(self): 
         return self._tracking_movements.copy()
