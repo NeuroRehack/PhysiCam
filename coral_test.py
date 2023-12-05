@@ -1,7 +1,16 @@
+"""
+script to test the functionality of the coral tpu library
+
+"""
+
+__author__ = "Mike Smith"
+__email__ = "dongming.shi@uqconnect.edu.au"
+__date__ = "05/12/2023"
+
+
 import time
 import cv2 as cv
 
-from statistics import mean
 from coral.coral import Coral
 
 

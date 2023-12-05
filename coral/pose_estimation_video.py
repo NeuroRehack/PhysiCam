@@ -26,6 +26,10 @@ https://www.tensorflow.org/hub/tutorials/movenet
 Example usage: py [-3.7 | -3.8 | -3.9] pose_estimation_video.py
 
 Modified by: Mike Smith
+
+Note: the majority of functionality within this script has been reimplemented in
+the coral.py file. Hence it is recommended to run ../coral_test.py for testing.
+
 """
 
 """
@@ -34,6 +38,7 @@ movenet landmarks
 5: 'left_shoulder', 6: 'right_shoulder', 7: 'left_elbow', 8: 'right_elbow',
 9: 'left_wrist', 10 : 'right_wrist', 11: 'left_hip', 12: 'right_hip', 
 13: 'left_knee', 14: 'right_knee', 15: 'left_ankle', 16: 'right_ankle'
+
 """
 
 import time

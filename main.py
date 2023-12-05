@@ -61,6 +61,7 @@ class MainThread(QtCore.QThread, Config):
     session_time = QtCore.pyqtSignal(int)
     camera_source = QtCore.pyqtSignal(int)
     refresh_source = QtCore.pyqtSignal(int)
+    tpu_error = QtCore.pyqtSignal(int)
 
     """ 
     back-end signals to handle counting reps 
@@ -222,7 +223,6 @@ class MainThread(QtCore.QThread, Config):
 
             """ track motion and count movements (only when recording) """
             if self._is_recording and not self._is_paused:
-
                 self._pose_landmarks = list()
 
                 if self._playback is not None:
@@ -230,6 +230,7 @@ class MainThread(QtCore.QThread, Config):
                         self._img, self._session_time, self._timestamps, overlay=False,
                     )
 
+                """ run movenet pose estimation if tpu enabled """
                 if self._tpu:
                     self._tpu_landmarks = self._coral.get_landmarks(self._img)
                 else:
@@ -264,6 +265,7 @@ class MainThread(QtCore.QThread, Config):
                         self._img.shape, self._curr_movement, self._flip, corr_mode=self._corr_mode,
                     )
 
+            """ display a blank frame if 'hide video' is enabled """
             self.emit_qt_img(
                 self._blank_frame if self._hide_video and self._blank_frame  is not None else self._img, 
                 (width, height), (img_width, img_height)
@@ -277,6 +279,7 @@ class MainThread(QtCore.QThread, Config):
             while not self._is_recording and self._source != Util.WEBCAM:
                 pass
 
+            """ toggle motion tracking method (use cpu or tpu) """
             if self._toggle_motion_tracking_method == True:
                 self._tpu = not self._tpu
                 self._toggle_motion_tracking_method = False
@@ -294,8 +297,27 @@ class MainThread(QtCore.QThread, Config):
         self.wait()
 
     def set_motion_tracking(self, tpu, init=False):
+        """
+        sets motion tracking method:
+        - tpu enabled: runs the movenet model on coral tpu usb accelerator
+        - tpu disabled: runs the mediapipe model on cpu
+
+        """
         if tpu:
-            self._coral = Coral()
+            try:
+                self._coral = Coral()
+            except ValueError as err:
+                tpu_error_msg_box = QtWidgets.QMessageBox()
+                tpu_error_msg_box.setWindowTitle("File Not Supported")
+                tpu_error_msg_box.setIcon(QtWidgets.QMessageBox.Warning)
+                tpu_error_msg_box.setText(
+                    "Unable to set up Coral TPU.\n\n"
+                    + "Please check connection and try again."
+                )
+                #invalid_file_msg_box.setWindowIcon(get_icon())
+                tpu_error_msg_box.exec()
+                self.tpu_error.emit(1)
+                return
         else:
             self._motion = Motion(model_complexity=1)   # mediapipe: pose estimation
         
@@ -307,7 +329,10 @@ class MainThread(QtCore.QThread, Config):
             self._toggle_motion_tracking_method = True
 
     def emit_qt_img(self, img, size, img_size):
-
+        """
+        function to emit the viewfinder image to the main window thread
+        
+        """
         width, height = size
         img_width, img_height = img_size
         
@@ -704,48 +729,36 @@ class MainThread(QtCore.QThread, Config):
             self.sit_to_stand.emit(str(self._sit_to_stand_count))
     
     def adjust_thresh(self, idx, value):
+        """
+        calback function for adjusting angular thresholds (in development)
+
+        """
         if idx == self.left_arm_reach_elbow_angle:
             self._left_arm_ext.left_arm_reach_elbow_angle = value
 
-    def get_tracking_movements(self): 
-        return self._tracking_movements.copy()
-    
-    def get_current_mode(self):
-        return self._modes.copy()
+    """ get functions used in the the main window thread """
+    def get_tracking_movements(self): return self._tracking_movements.copy()
+    def get_current_mode(self): return self._modes.copy()
+    def get_recording_status(self): return self._is_recording
+    def get_input_source(self): return self._source
+    def get_corr_mode(self): return self._corr_mode
+    def get_pause_status(self): return self._is_paused
 
-    def get_recording_status(self):
-        return self._is_recording
-
-    def get_input_source(self):
-        return self._source
-    
-    def get_corr_mode(self):
-        return self._corr_mode
-    
-    def get_pause_status(self):
-        return self._is_paused
-
-    def update_name_id(self, name_id):
-        self._name_id = name_id
-
-    def update_movement(self, movement):
-        self._curr_movement = movement
-
-    def generate_file(self, is_checked):
-        self._save_file = is_checked
-
-    def blur_faces(self, is_checked):
-        self._blur_faces = is_checked
-
-    def toggle_filter(self, is_checked):
-        self._filter = is_checked
-
-    def toggle_video(self, is_checked):
-        self._hide_video = is_checked
+    """ set/toggle function set by user inputs from the main window thread """
+    def update_name_id(self, name_id): self._name_id = name_id
+    def update_movement(self, movement): self._curr_movement = movement
+    def generate_file(self, is_checked): self._save_file = is_checked
+    def blur_faces(self, is_checked): self._blur_faces = is_checked
+    def toggle_filter(self, is_checked): self._filter = is_checked
+    def toggle_video(self, is_checked): self._hide_video = is_checked
     
 
 class ThreshWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_thresh.Ui_MainWindow):
+    """
+    Threshold Window: for the user to adjust various thresholds related to counting reps
+    (in development)
 
+    """
     sit_to_stand_hip_angle = QtCore.pyqtSignal(int)
 
     left_arm_reach_elbow_angle = QtCore.pyqtSignal(int)
@@ -806,6 +819,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._main_thread.session_time.connect(
             lambda time: self.sessiontime_label.setText(f"Session Time: {self.format_time(time)}")
         )
+        self._main_thread.tpu_error.connect(self.handle_tpu_error)
 
         """ camera source combo-box signals """
         self._main_thread.camera_source.connect(
@@ -967,6 +981,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
                 f"Frame Rate: {round(mean(self._frame_rates), 1)} fps"
             )
             self._frame_rates = []    
+
+    def handle_tpu_error(self):
+        self.actionCoral_TPU.setChecked(False)
 
     def update_start_pushButton(self):
         """

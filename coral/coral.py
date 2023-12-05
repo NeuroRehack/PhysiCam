@@ -1,3 +1,22 @@
+"""
+coral/coral.py
+
+library for interfacing with the coral tpu usb accelerator
+
+the Coral module contain the following methods:
+- `__init__`: sets up the tpu interpreter, loads ml model, init lpf arrays
+- `get_landmarks`: takes a video frame as input and outputs pose landmark co-ords
+- `display_landmarks`: draws the detected landmarks on the video frame
+
+"""
+
+__author__ = "Mike Smith"
+__email__ = "dongming.shi@uqconnect.edu.au"
+__date__ = "05/12/2023"
+__status__ = "Prototype"
+__credits__ = []
+
+
 import cv2 as cv
 import numpy as np
 from statistics import mean
@@ -15,11 +34,21 @@ class Coral():
     ]
 
     model_path = "coral/models/movenet/movenet_single_pose_thunder_ptq_edgetpu.tflite"
+    #model_path = "coral/models/posenet/mobilenet/posenet_mobilenet_v1_075_481_641_16_quant_decoder_edgetpu.tflite"
 
     def __init__(self):
+        """
+        - sets up the tpu interpreter
+        - loads ml model
+        - init lpf arrays
 
-        self._interpreter = make_interpreter(self.model_path)
-        self._interpreter.allocate_tensors()
+        """
+        try:
+            self._interpreter = make_interpreter(self.model_path)
+            self._interpreter.allocate_tensors()
+        except Exception as err:
+            print(err)
+            raise ValueError
 
         self._x_mean, self._y_mean = -1, -1
         self._lpf_buf_x = {key: list() for key in range(self.num_keypoints)}
@@ -33,6 +62,16 @@ class Coral():
         self._print_once = True
     
     def get_landmarks(self, img):
+        """
+        takes a video frame as input and outputs pose landmark co-ords
+
+        params:
+        - `img`: the current video frame
+
+        returns:
+        - a list containing the pose landmark co-ords
+
+        """
         interpreter_size = common.input_size(self._interpreter)
 
         """ resize image and perform antialiasing using cv.INTER_AREA """
@@ -49,8 +88,8 @@ class Coral():
             )
             if self._print_once: print(resized_img.shape)
 
-        cv.imshow("resized", resized_img)
-        key = cv.waitKey(1)
+        #cv.imshow("resized", resized_img)
+        #key = cv.waitKey(1)
         self._print_once = False
 
         common.set_input(self._interpreter, resized_img)
@@ -92,7 +131,17 @@ class Coral():
         return [self._lpf_buf_x_mean, self._lpf_buf_y_mean]
 
     def display_landmarks(self, img, landmarks):
+        """
+        draws the detected landmarks on the video frame
 
+        params:
+        - `img`: the current video frame
+        - `landmarks`: the detected pose landmark co-ords
+
+        returns:
+        - the current video frame with visual overlaid landmarks
+
+        """
         h, w, _ = img.shape
         x, y = landmarks
         for i in range(self.num_keypoints):

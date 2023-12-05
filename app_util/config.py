@@ -1,13 +1,6 @@
 """
 config.py
 
-Contains angular and positional threshold values used to determine movement repititions.
-
-Contains thresholds for the following movements:
-- Right arm extensions
-- Left arm extensions
-- Sit to stand
-
 see "doc/config.md" for more details
 
 """
