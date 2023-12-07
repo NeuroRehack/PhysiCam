@@ -20,7 +20,6 @@ import cv2 as cv
 import numpy as np
 from PyQt5 import QtCore, QtWidgets, QtGui
 from statistics import mean
-from coral.coral import Coral
 from app_util import gui_main, gui_thresh
 from app_util.config import Config
 from app_util.util import Util
@@ -36,6 +35,10 @@ from app_util.movement import (
     BoundaryDetector, 
     StandingTimer,
 )
+try: 
+    from coral.coral import Coral
+except ModuleNotFoundError as err: 
+    print(err)
 
 
 __author__ = "Mike Smith"
@@ -62,6 +65,7 @@ class MainThread(QtCore.QThread, Config):
     camera_source = QtCore.pyqtSignal(int)
     refresh_source = QtCore.pyqtSignal(int)
     tpu_error = QtCore.pyqtSignal(int)
+    multiple_cams = QtCore.pyqtSignal(int)
 
     """ 
     back-end signals to handle counting reps 
@@ -99,19 +103,20 @@ class MainThread(QtCore.QThread, Config):
     right_arm_reach_shoulder_angle = 4
 
 
-    def __init__(self, parent=None):
+    def __init__(self, cam_id=0, parent=None):
         """"
         init method: initialises the parent classes
 
         """
         super().__init__(parent)
+        self._cam_id = cam_id
 
     def run(self):
         """
         main worker thread
 
         """
-        print(f"Python Version Info: {sys.version}")
+        print(f"{self._cam_id = }")
 
         self._active = True
         self.get_source_channel()
@@ -308,11 +313,23 @@ class MainThread(QtCore.QThread, Config):
                 self._coral = Coral()
             except ValueError as err:
                 tpu_error_msg_box = QtWidgets.QMessageBox()
-                tpu_error_msg_box.setWindowTitle("File Not Supported")
+                tpu_error_msg_box.setWindowTitle("Coral TPU Error")
                 tpu_error_msg_box.setIcon(QtWidgets.QMessageBox.Warning)
                 tpu_error_msg_box.setText(
                     "Unable to set up Coral TPU.\n\n"
                     + "Please check connection and try again."
+                )
+                #invalid_file_msg_box.setWindowIcon(get_icon())
+                tpu_error_msg_box.exec()
+                self.tpu_error.emit(1)
+                return
+            except NameError as err:
+                tpu_error_msg_box = QtWidgets.QMessageBox()
+                tpu_error_msg_box.setWindowTitle("Coral TPU Error")
+                tpu_error_msg_box.setIcon(QtWidgets.QMessageBox.Warning)
+                tpu_error_msg_box.setText(
+                    "Unable to set up Coral TPU.\n\n"
+                    + "Coral TPU device is not supported."
                 )
                 #invalid_file_msg_box.setWindowIcon(get_icon())
                 tpu_error_msg_box.exec()
@@ -339,6 +356,11 @@ class MainThread(QtCore.QThread, Config):
         """ flip image if accessed from webcam """
         if self._source == Util.WEBCAM and self._flip:
             img = cv.flip(img, 1)
+
+        ### testing multiple cameras ###
+        if self._cam_id >= 1:
+            cv.imshow(f"{self._cam_id}", img)
+            cv.waitKey(1)
 
         """ emit image signal to the main-window thread to be displayed """
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
@@ -390,7 +412,10 @@ class MainThread(QtCore.QThread, Config):
 
         self._flip = True if self._curr_video_source == 0 else False
             
+        ### testing multiple cameras ###
         cap = cv.VideoCapture(self._curr_video_source, cv.CAP_DSHOW)
+        #cap = cv.VideoCapture(self._cam_id, cv.CAP_DSHOW)
+
         cap = self.set_frame_dimensions(cap, "webcam")
 
         if self._is_recording and source is None:
@@ -421,6 +446,11 @@ class MainThread(QtCore.QThread, Config):
 
             print(channel)
             channel += 1
+
+        ### testing multiple cameras ###
+        #if self._channel > 1:
+            #time.sleep(1)
+            #self.multiple_cams.emit(0)
 
     def set_frame_dimensions(self, cap, source):
         """
@@ -809,8 +839,8 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self.setWindowTitle("PhysiCam")
         self.setWindowIcon(get_icon())
 
-        """ create the worker thread """
-        self._main_thread = MainThread()
+        """ init main thread """
+        self._main_thread = MainThread(cam_id=0)
         self._main_thread.start()
 
         """ connect back-end signals """
@@ -820,6 +850,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             lambda time: self.sessiontime_label.setText(f"Session Time: {self.format_time(time)}")
         )
         self._main_thread.tpu_error.connect(self.handle_tpu_error)
+
+        ### testing multiple cameras
+        #self._main_thread.multiple_cams.connect(self.multiple_cams)
 
         """ camera source combo-box signals """
         self._main_thread.camera_source.connect(
@@ -985,6 +1018,15 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
     def handle_tpu_error(self):
         self.actionCoral_TPU.setChecked(False)
 
+    ### tesing multiple cameras ###
+    def multiple_cams(self, id):
+        print("multiple cameras")
+        if id == 0:
+            self._worker_thread = MainThread(cam_id=1)
+            self._worker_thread.start()
+
+            self.start_pushButton.clicked.connect(self._worker_thread.start_stop_recording)
+
     def update_start_pushButton(self):
         """
         updates the gui interface whenever the start / stop button is pressed
@@ -1081,6 +1123,7 @@ def get_icon():
 
 
 def main():
+    print(f"Python Version Info: {sys.version}")
     app = QtWidgets.QApplication(sys.argv)
     win = MainWindow()
     win.show()
