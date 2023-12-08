@@ -65,6 +65,7 @@ class Config():
         self._modes = set()
 
         self._tpu = False       ### Coral TPU enable/disable
+        self._ignore_primary = False    ### ignore primary camera
 
         self._playback = None
         self._timestamps = None

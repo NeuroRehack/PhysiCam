@@ -20,6 +20,7 @@ __credits__ = []
 import cv2 as cv
 import numpy as np
 from statistics import mean
+from traceback import format_exc
 from pycoral.adapters import common
 from pycoral.utils.edgetpu import make_interpreter
 
@@ -43,12 +44,12 @@ class Coral():
         - init lpf arrays
 
         """
-        #try:
-        self._interpreter = make_interpreter(self.model_path)
-        self._interpreter.allocate_tensors()
-        #except Exception as err:
-            #print(err)
-            #raise ValueError
+        try:
+            self._interpreter = make_interpreter(self.model_path)
+            self._interpreter.allocate_tensors()
+        except Exception as err:
+            print(f"{format_exc()}")
+            raise ValueError
 
         self._x_mean, self._y_mean = -1, -1
         self._lpf_buf_x = {key: list() for key in range(self.num_keypoints)}

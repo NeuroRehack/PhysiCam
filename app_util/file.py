@@ -88,7 +88,7 @@ class VideoFile(File):
         self._video_out = None
         self._timestamps = list()
 
-    def start_video(self, filetime, shape):
+    def start_video(self, filetime, shape, cam_id):
         """
         start saving to a new video file
 
@@ -103,11 +103,11 @@ class VideoFile(File):
             os.mkdir(self.video_path)
 
         """ create a sub-dir to store the video file and timestamps file """
-        if not os.path.exists(f"{self.video_path}/{filetime}"):
-            os.mkdir(f"{self.video_path}/{filetime}")
+        if not os.path.exists(f"{self.video_path}/{filetime}-{cam_id}"):
+            os.mkdir(f"{self.video_path}/{filetime}-{cam_id}")
 
         """ create the video writer object """
-        self._fname = f"{self.video_path}/{filetime}/{filetime}"
+        self._fname = f"{self.video_path}/{filetime}-{cam_id}/{filetime}-{cam_id}"
         self._video_out = cv.VideoWriter(
             f"{self._fname}.avi", cv.VideoWriter_fourcc(*'XVID'), 30, (w, h),
         )
@@ -171,7 +171,7 @@ class CsvFile(File):
         """
         pass
 
-    def write(self, name, filetime):
+    def write(self, name, filetime, cam_id):
         """
         takes the parsed data and writes it to a csv file
 
@@ -187,9 +187,7 @@ class CsvFile(File):
         dir = os.scandir(self.file_path)
         files = [a.name for a in dir]
 
-        ##########
         """ invalid characters """
-        # TO-DO: move invalid char checking to line-edit callback function
         invalid = r'/\:*"?<>|!@#$%^&'
 
         """ create an appropriate filename (display to terminal for debugging) """
@@ -197,9 +195,8 @@ class CsvFile(File):
         name = f"{name}-" if name != "" else ""
         name = name.replace(' ', '_')
 
-        fname = f"{self.file_path}/{name}{filetime}.csv"
+        fname = f"{self.file_path}/{name}{filetime}-{cam_id}.csv"
         print(f"saved file: {fname}") if fname not in files else print("file exists")
-        #########
 
         """ create a csv file and write to it """
         with open(fname, "w", newline="") as new_file:
@@ -208,7 +205,6 @@ class CsvFile(File):
 
             for d in self._data:
                 dict_writer.writerow(d)
-
 
     def parse_movements(
             self, movements, landmarks, curr_time, shape, curr_movement, flipped,

@@ -28,28 +28,17 @@ from app_util.file import File, CsvFile, VideoFile
 from app_util.aruco import Aruco
 from app_util.playback import Playback
 from app_util.movement import (
-    ArmExtensions,
-    SitToStand, 
-    StepTracker, 
-    BoxAndBlocks, 
-    BoundaryDetector, 
-    StandingTimer,
+    ArmExtensions, SitToStand, StepTracker, BoxAndBlocks, BoundaryDetector, StandingTimer,
 )
-try: 
-    from coral.coral import Coral
-except ModuleNotFoundError as err: 
-    print(err)
+try: from coral.coral import Coral
+except ModuleNotFoundError as err: print(err)
 
 
 __author__ = "Mike Smith"
 __email__ = "dongming.shi@uqconnect.edu.au"
 __date__ = "12/04/2023"
 __status__ = "Prototype"
-__credits__ = [
-    "Agnethe Kaasen", 
-    "Live Myklebust", 
-    "Amber Spurway",
-]
+__credits__ = ["Agnethe Kaasen", "Live Myklebust", "Amber Spurway"]
 
 
 class MainThread(QtCore.QThread, Config):
@@ -58,7 +47,6 @@ class MainThread(QtCore.QThread, Config):
     and counting reps
 
     """
-
     image = QtCore.pyqtSignal(QtGui.QImage)
     frame_rate = QtCore.pyqtSignal(float)
     session_time = QtCore.pyqtSignal(int)
@@ -67,59 +55,46 @@ class MainThread(QtCore.QThread, Config):
     tpu_error = QtCore.pyqtSignal(int)
     multiple_cams = QtCore.pyqtSignal(int)
 
-    """ 
-    back-end signals to handle counting reps 
-    
-    """
+    """ back-end signals to handle counting reps """
     right_arm_ext = QtCore.pyqtSignal(str)
     left_arm_ext = QtCore.pyqtSignal(str)
     sit_to_stand = QtCore.pyqtSignal(str)
-
     right_steps = QtCore.pyqtSignal(str)
     left_steps = QtCore.pyqtSignal(str)
     standing_timer = QtCore.pyqtSignal(int)
-
     right_hand_count = QtCore.pyqtSignal(str)
     left_hand_count = QtCore.pyqtSignal(str)
 
-    """
-    tracking modes
-
-    """
+    """ tracking modes """
     motion_tracking_mode = 0
     steps_tracking_mode = 1
     hand_tracking_mode = 2
 
-    """
-    thresholds ids
-
-    """
+    """ thresholds ids """
     sit_to_stand_hip_angle = 0
-
     left_arm_reach_elbow_angle = 1
     left_arm_reach_shoulder_angle = 2
-
     right_arm_reach_elbow_angle = 3
     right_arm_reach_shoulder_angle = 4
 
-
-    def __init__(self, cam_id=0, parent=None):
+    def __init__(self, cam_id=0, primary=True, parent=None):
         """"
         init method: initialises the parent classes
 
         """
         super().__init__(parent)
         self._cam_id = cam_id
+        self._primary = primary
 
     def run(self):
         """
         main worker thread
 
         """
-        print(f"{self._cam_id = }")
-
         self._active = True
-        self.get_source_channel()
+        if self._primary: self.get_source_channel()
+
+        """ start video capture """
         self.start_video_capture()
 
         """ frame rate (for debugging) """
@@ -150,8 +125,7 @@ class MainThread(QtCore.QThread, Config):
                 - keep iterating through the main while loop until an image signal is received
 
                 """
-                if not self._is_recording:
-                    continue
+                if not self._is_recording: continue
 
                 """ 
                 if error accessing camera or end of video and program was recording:
@@ -162,9 +136,7 @@ class MainThread(QtCore.QThread, Config):
                 """
                 self.start_stop_recording()
 
-                while not self._is_recording and self._source != Util.WEBCAM:
-                    pass
-
+                while not self._is_recording and self._source != Util.WEBCAM: pass
                 continue
 
             """ create blank frame if 'hide_video' is True """
@@ -174,8 +146,7 @@ class MainThread(QtCore.QThread, Config):
             self._shape = self._img.shape
             height, width, _ = self._shape
 
-            if not self._tpu:
-                self._motion.crop = {"start": Util.INIT, "end": (width, height)}
+            if not self._tpu: self._motion.crop = {"start": Util.INIT, "end": (width, height)}
 
             """ display frame rate """
             frame_rate = self.get_frame_rate(frame_times)
@@ -193,13 +164,12 @@ class MainThread(QtCore.QThread, Config):
                     self._time_stamps = file.readlines()
                     file.close()
                     self._file_read = True
-                except FileNotFoundError as err:
-                    pass
+                except FileNotFoundError as err: print(err)
 
             """ get the time since start of session """
             if self._start_time is not None and self._is_recording and not self._is_paused:
                 
-                if self._save_video:
+                if self._save_video and not self._ignore_primary:
                     self._video_recording.parse_video_frame(self._img, self._session_time)
 
                 """ corr mode: use time-stamps file is provided """
@@ -211,7 +181,7 @@ class MainThread(QtCore.QThread, Config):
                         self._session_time = float(self._time_stamps[self._index - 1])
                         self._time_stamps = list()
                         self._index = 0
-                else:
+                else: 
                     self._session_time = time.time() - self._start_time - self._pause_time
                 
                 self.session_time.emit(int(self._session_time))
@@ -238,33 +208,31 @@ class MainThread(QtCore.QThread, Config):
                 """ run movenet pose estimation if tpu enabled """
                 if self._tpu:
                     self._tpu_landmarks = self._coral.get_landmarks(self._img)
-                else:
+                elif not self._ignore_primary:
                     self._img, begin, end, cropped, view = self._motion.track_motion(
                         self._img, self._pose_landmarks, self._session_time, self._blur_faces,
                         debug=False, dynamic=True, filter=self._filter,
                     )
 
                 """ find faces """
-                if self._blur_faces:
-                    self._img = self._faces.find_faces(self._img)
+                if self._blur_faces: self._img = self._faces.find_faces(self._img)
 
                 """ count the number of reps for each movement """
-                if self._tpu:
-                    pass
-                else:
+                if self._tpu: pass
+                elif not self._ignore_primary:
                     self.count_movements(cropped, begin, end, view)
 
                 """ draw stick figure overlay (draw after hand detection in "count_movements()) """
                 if self._tpu:
                     self._img = self._coral.display_landmarks(self._img, self._tpu_landmarks)
-                else:
+                elif not self._ignore_primary:
                     self._motion.draw(
                         self._blank_frame if self._hide_video and self._blank_frame is not None else self._img, 
                         self._pose_landmarks, begin, end
                     )
 
                 """ parse movement data to file object """
-                if self._session_time is not None:
+                if self._session_time is not None and not self._ignore_primary:
                     self._write_file.parse_movements(
                         self._tracking_movements, self._pose_landmarks, self._session_time,
                         self._img.shape, self._curr_movement, self._flip, corr_mode=self._corr_mode,
@@ -281,8 +249,7 @@ class MainThread(QtCore.QThread, Config):
             time.sleep(self._delay)
 
             """ pause video """
-            while not self._is_recording and self._source != Util.WEBCAM:
-                pass
+            while not self._is_recording and self._source != Util.WEBCAM: pass
 
             """ toggle motion tracking method (use cpu or tpu) """
             if self._toggle_motion_tracking_method == True:
@@ -309,8 +276,7 @@ class MainThread(QtCore.QThread, Config):
 
         """
         if tpu:
-            try:
-                self._coral = Coral()
+            try: self._coral = Coral()
             except ValueError as err:
                 tpu_error_msg_box = QtWidgets.QMessageBox()
                 tpu_error_msg_box.setWindowTitle("Coral TPU Error")
@@ -342,8 +308,22 @@ class MainThread(QtCore.QThread, Config):
         self._faces = Faces()       # mediapipe: face mesh
         self._aruco = Aruco()       # opencv: aruco detector
 
-        if not init:
-            self._toggle_motion_tracking_method = True
+        if not init: self._toggle_motion_tracking_method = True
+
+    def flip_frame(self, flip):
+        """
+        flip the frame for the current camera instance
+
+        """
+        self._flip = flip
+
+    def ignore_primary(self, ignore):
+        """
+        ignore the motion tracking for the primary camera
+        (enable to improve performance of secondary camera(s) is primary camera is not used)
+        
+        """
+        self._ignore_primary = ignore
 
     def emit_qt_img(self, img, size, img_size):
         """
@@ -354,12 +334,11 @@ class MainThread(QtCore.QThread, Config):
         img_width, img_height = img_size
         
         """ flip image if accessed from webcam """
-        if self._source == Util.WEBCAM and self._flip:
-            img = cv.flip(img, 1)
+        if self._source == Util.WEBCAM and self._flip: img = cv.flip(img, 1)
 
-        ### testing multiple cameras ###
-        if self._cam_id >= 1:
-            cv.imshow(f"{self._cam_id}", img)
+        """ show frame from second camera """
+        if not self._primary:
+            cv.imshow(f"PhysiCam: {self._cam_id}", img)
             cv.waitKey(1)
 
         """ emit image signal to the main-window thread to be displayed """
@@ -374,8 +353,7 @@ class MainThread(QtCore.QThread, Config):
         starts video capture from webcam by default
 
         """
-        if self._source == Util.WEBCAM and source is None:
-            return
+        if self._source == Util.WEBCAM and source is None: return
         
         if source is not None:
             if self._is_camera_ready:
@@ -393,8 +371,7 @@ class MainThread(QtCore.QThread, Config):
             cap = cv.VideoCapture(name)
             cap = self.set_frame_dimensions(cap, "video")
 
-            if not self._is_recording:
-                self.start_stop_recording()
+            if not self._is_recording: self.start_stop_recording()
             else:
                 self.start_stop_recording()
                 self.start_stop_recording()
@@ -402,28 +379,20 @@ class MainThread(QtCore.QThread, Config):
             self._start_time = time.time()
             self.reset_all_count()
 
-            if cap.isOpened():
-                return cap
+            if cap.isOpened(): return cap
             
         self._source = Util.WEBCAM
-
-        if source is not None:
-            self._curr_video_source = source
+        if source is not None: self._curr_video_source = source
 
         self._flip = True if self._curr_video_source == 0 else False
             
-        ### testing multiple cameras ###
-        cap = cv.VideoCapture(self._curr_video_source, cv.CAP_DSHOW)
-        #cap = cv.VideoCapture(self._cam_id, cv.CAP_DSHOW)
-
+        """ start video capture """
+        #cap = cv.VideoCapture(self._curr_video_source, cv.CAP_DSHOW)
+        cap = cv.VideoCapture(self._cam_id, cv.CAP_DSHOW)
         cap = self.set_frame_dimensions(cap, "webcam")
 
-        if self._is_recording and source is None:
-            self.start_stop_recording()
-
-        if cap.isOpened():
-            return cap
-
+        if self._is_recording and source is None: self.start_stop_recording()
+        if cap.isOpened(): return cap
         print("error opening video stream or file")
         return None
     
@@ -432,25 +401,17 @@ class MainThread(QtCore.QThread, Config):
         gets the available webcam source channels and updates combo-box in main window thread
 
         """
-        if update:
-            self.refresh_source.emit(0)
+        if update: self.refresh_source.emit(0)
 
         channel = 0
         while channel < Util.MAX_NUM_CAMERAS:
             test_cap = cv.VideoCapture(channel, cv.CAP_DSHOW)
 
-            if test_cap.read()[0]:
-                self.camera_source.emit(channel)
-            else:
-                break
-
-            print(channel)
+            if test_cap.read()[0]: self.camera_source.emit(channel)
+            else: break
             channel += 1
 
-        ### testing multiple cameras ###
-        #if self._channel > 1:
-            #time.sleep(1)
-            #self.multiple_cams.emit(0)
+        if channel > 1: self.multiple_cams.emit(channel)
 
     def set_frame_dimensions(self, cap, source):
         """
@@ -463,7 +424,7 @@ class MainThread(QtCore.QThread, Config):
 
             width = cap.get(cv.CAP_PROP_FRAME_WIDTH)
             height = cap.get(cv.CAP_PROP_FRAME_HEIGHT)
-            print(f"{source} resolution: {int(width)} x {int(height)}")
+            print(f"channel {self._cam_id}, {source} resolution: {int(width)} x {int(height)}")
 
         return cap
 
@@ -478,7 +439,7 @@ class MainThread(QtCore.QThread, Config):
         file_type = self._read_file.get_file_type(name)
 
         """ check that the file is valid and supported by program """
-        if file_type == Util.MP4:
+        if file_type == Util.MP4:   # *.mp4 files
             self._cap = self.get_video_capture(self._cap, name=name)
             self._file_read = False
             print(f'video file: "{name}"')
@@ -488,7 +449,7 @@ class MainThread(QtCore.QThread, Config):
                 f'{name.replace(".mp4", ".txt")}',
             )
 
-        elif file_type == Util.AVI:
+        elif file_type == Util.AVI: # *.avi files
             self._cap = self.get_video_capture(self._cap, name=name)
             self._file_read = False
             print(f'video file: "{name}"')
@@ -498,10 +459,14 @@ class MainThread(QtCore.QThread, Config):
                 f'{name.replace(".avi", ".txt")}',
             )
 
-        elif file_type == Util.CSV:
+        elif file_type == Util.CSV: # *.csv files
             print(f'csv file: "{name}"')
 
         elif file_type == Util.FILE_NOT_SUPPORTED:
+            """
+            launches an invalid file msg box is file type i nt supported
+
+            """
             invalid_file_msg_box = QtWidgets.QMessageBox()
             invalid_file_msg_box.setWindowTitle("File Not Supported")
             invalid_file_msg_box.setIcon(QtWidgets.QMessageBox.Warning)
@@ -520,7 +485,10 @@ class MainThread(QtCore.QThread, Config):
         """
 
         if self._is_recording and self._save_file:
+            """
+            launches a save file? msg box if user exits program while recording
 
+            """
             handle_exit_msg_box = QtWidgets.QMessageBox()
             handle_exit_msg_box.setWindowTitle("Save session?")
             handle_exit_msg_box.setIcon(QtWidgets.QMessageBox.Question)
@@ -533,8 +501,8 @@ class MainThread(QtCore.QThread, Config):
 
             button_handler = handle_exit_msg_box.clickedButton()
             button_clicked = handle_exit_msg_box.standardButton(button_handler)
-            if button_clicked == QtWidgets.QMessageBox.Yes:
-                self._write_file.write(self._name_id, self._filetime)
+            if button_clicked == QtWidgets.QMessageBox.Yes and not self._ignore_primary:
+                self._write_file.write(self._name_id, self._filetime, self._cam_id)
 
     def get_frame_rate(self, frame_times):
         """
@@ -547,9 +515,9 @@ class MainThread(QtCore.QThread, Config):
             frame_rate = 1 / (frame_times["curr time"] - frame_times["prev time"])
         except ZeroDivisionError as err:
             frame_rate = 0
+            print(err)
 
         frame_times["prev time"] = frame_times["curr time"]
-
         return frame_rate
 
     def start_stop_recording(self):
@@ -559,19 +527,15 @@ class MainThread(QtCore.QThread, Config):
 
         """
         self._is_recording = not self._is_recording
-
+        
         if self._is_recording:
-            """
-            create new file object
-
-            """
-            self._filetime = Util.create_filename()
-
+            self._filetime = Util.create_filename() # create new file object
             self._write_file = CsvFile(save=self._save_file)
 
             if self._save_video:
                 self._video_recording = VideoFile(save=self._save_video)
-                self._video_recording.start_video(self._filetime, self._img.shape)
+                if not self._ignore_primary:
+                    self._video_recording.start_video(self._filetime, self._img.shape, self._cam_id)
 
             if self._stop_time is not None and (
                 self._source == Util.VIDEO or self._is_paused
@@ -588,9 +552,10 @@ class MainThread(QtCore.QThread, Config):
             self._stop_time = time.time()
 
             """ write to csv file """
-            self._write_file.write(self._name_id, self._filetime)
+            if not self._ignore_primary:
+                self._write_file.write(self._name_id, self._filetime, self._cam_id)
 
-            if self._save_video:
+            if self._save_video and not self._ignore_primary:
                 self._video_recording.end_video()
 
     def pause(self):
@@ -611,10 +576,8 @@ class MainThread(QtCore.QThread, Config):
         called from the main window thread
 
         """
-        if update == "add":
-            self._modes.add(mode)
-        elif update == "rm":
-            self._modes.discard(mode)
+        if update == "add": self._modes.add(mode)
+        elif update == "rm": self._modes.discard(mode)
 
     def reset_all_count(self):
         """
@@ -644,14 +607,13 @@ class MainThread(QtCore.QThread, Config):
 
         """
         is_steps_enabled = self.steps_tracking_mode in self._modes
+        self._standing_timer = StandingTimer(is_steps_enabled, debug=False)
 
         self._left_step_tracker = StepTracker(is_steps_enabled, Util.LEFT, debug=False)
         self._tracking_movements.update({"left steps": self._left_step_tracker})
 
         self._right_step_tracker = StepTracker(is_steps_enabled, Util.RIGHT, debug=False)
         self._tracking_movements.update({"right steps": self._right_step_tracker})
-
-        self._standing_timer = StandingTimer(is_steps_enabled, debug=False)
 
         """ 
         add "box and blocks" counting (hand tracking)
@@ -839,8 +801,12 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self.setWindowTitle("PhysiCam")
         self.setWindowIcon(get_icon())
 
+        """ num number of cameras """
+        self._max_num_cameras = 3
+        self._num_channels = 0
+
         """ init main thread """
-        self._main_thread = MainThread(cam_id=0)
+        self._main_thread = MainThread(cam_id=0, primary=True)
         self._main_thread.start()
 
         """ connect back-end signals """
@@ -849,10 +815,10 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._main_thread.session_time.connect(
             lambda time: self.sessiontime_label.setText(f"Session Time: {self.format_time(time)}")
         )
-        self._main_thread.tpu_error.connect(self.handle_tpu_error)
+        self._main_thread.tpu_error.connect(lambda: self.actionCoral_TPU.setChecked(False))
 
-        ### testing multiple cameras
-        #self._main_thread.multiple_cams.connect(self.multiple_cams)
+        """ set up multiple cameras """
+        self._main_thread.multiple_cams.connect(self.multiple_cams)
 
         """ camera source combo-box signals """
         self._main_thread.camera_source.connect(
@@ -927,6 +893,10 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self.actionCoral_TPU.triggered.connect(
             lambda: self._main_thread.set_motion_tracking(self.actionCoral_TPU.isChecked())
         )
+        self.actionIgnore_Primary.triggered.connect(
+            lambda: self._main_thread.ignore_primary(self.actionIgnore_Primary.isChecked())
+        )
+        self.actionFlip_Frame.triggered.connect(self.flip_frame)
 
         """ connect check-box signals """
         self.motion_tracking_checkBox.stateChanged.connect(
@@ -953,6 +923,13 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
 
         self._frame_rates = []
 
+    def flip_frame(self):
+        self._main_thread.flip_frame(self.actionFlip_Frame.isChecked())
+
+        time.sleep(1)
+        for i in range(1, self._num_channels):
+            self._worker_threads[i-1].flip_frame(self.actionFlip_Frame.isChecked())
+
     def update_frame(self, img):
         """
         updated gui interface whenever a new video frame is received from the
@@ -961,7 +938,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         """
         self.img_label.setPixmap(QtGui.QPixmap(img))
 
-        if self._main_thread.get_input_source() == Util.VIDEO:
+        if self._main_thread.get_input_source() == Util.VIDEO or self._num_channels > 1:
             self.source_comboBox.setEnabled(False)
         else:
             self.source_comboBox.setEnabled(True)
@@ -1015,17 +992,20 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             )
             self._frame_rates = []    
 
-    def handle_tpu_error(self):
-        self.actionCoral_TPU.setChecked(False)
+    """ start multiple cameras """
+    def multiple_cams(self, channels):
+        print(f"{channels} cameras found")
+        self._num_channels = channels
 
-    ### tesing multiple cameras ###
-    def multiple_cams(self, id):
-        print("multiple cameras")
-        if id == 0:
-            self._worker_thread = MainThread(cam_id=1)
-            self._worker_thread.start()
+        time.sleep(0.5)
+        self._worker_threads = tuple()
+        for i in range(1, self._num_channels):
+            if i >= self._max_num_cameras: break
 
-            self.start_pushButton.clicked.connect(self._worker_thread.start_stop_recording)
+            self._worker_threads += (MainThread(cam_id=i, primary=False), )
+            self._worker_threads[i-1].start()
+
+            self.start_pushButton.clicked.connect(self._worker_threads[i-1].start_stop_recording)
 
     def update_start_pushButton(self):
         """
@@ -1118,8 +1098,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._main_thread.handle_exit(event)
         
 
-def get_icon():
-    return QtGui.QIcon(Util.ICON_FILE_PATH)
+def get_icon(): return QtGui.QIcon(Util.ICON_FILE_PATH)
 
 
 def main():
@@ -1130,5 +1109,4 @@ def main():
     sys.exit(app.exec_())
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

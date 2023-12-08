@@ -1,7 +1,21 @@
 import cv2 as cv
+import numpy as np
 
 """ aruco marker sizes """
 ARUCO_SIZES = [4, 5, 6, 7]
+
+mtx = np.array(
+    [
+        [500.0, 0.0,  300.0],
+        [0.0, 500.0, 300.0],
+        [0.0, 0.0, 1.0],
+    ]
+)
+dist = np.array(
+    [
+        [0.01, 0.01, 0.01, 0.01, 0.01]
+    ]
+)
 
 class Aruco:
     def __init__(self):
@@ -12,6 +26,8 @@ class Aruco:
         looks for aruco markers of various sizes
 
         """
+        img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
         for size in ARUCO_SIZES:
             if size == ARUCO_SIZES[0]:
                 aruco_dict = cv.aruco.getPredefinedDictionary(cv.aruco.DICT_4X4_1000)
@@ -25,6 +41,14 @@ class Aruco:
             aruco_params = cv.aruco.DetectorParameters()
             detector = cv.aruco.ArucoDetector(aruco_dict, aruco_params)
             self._corners, self._ids, self._rejected = detector.detectMarkers(img)
+
+            # TO-DO: draw aruco orientation
+            if len(self._corners) > 0:
+                for i in range(0, len(self._ids)):
+                
+                    rvec, tvec, mp = cv.aruco.estimatePoseSingleMarkers(self._corners[i], 0.03, mtx, dist)
+                    print(f"Pose Estimation - Marker {i + 1}:\nRotation Vector (rvec): {rvec}\nTranslation Vector (tvec): {tvec}")
+                    img = cv.drawFrameAxes(img, mtx, dist, rvec, tvec, 1, 3)
 
             img = self.display_aruco(img, detected)
 
