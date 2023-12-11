@@ -56,14 +56,14 @@ class MainThread(QtCore.QThread, Config):
     multiple_cams = QtCore.pyqtSignal(int)
 
     """ back-end signals to handle counting reps """
-    right_arm_ext = QtCore.pyqtSignal(str)
-    left_arm_ext = QtCore.pyqtSignal(str)
-    sit_to_stand = QtCore.pyqtSignal(str)
-    right_steps = QtCore.pyqtSignal(str)
-    left_steps = QtCore.pyqtSignal(str)
+    right_arm_ext = QtCore.pyqtSignal(int)
+    left_arm_ext = QtCore.pyqtSignal(int)
+    sit_to_stand = QtCore.pyqtSignal(int)
+    right_steps = QtCore.pyqtSignal(int)
+    left_steps = QtCore.pyqtSignal(int)
     standing_timer = QtCore.pyqtSignal(int)
-    right_hand_count = QtCore.pyqtSignal(str)
-    left_hand_count = QtCore.pyqtSignal(str)
+    right_hand_count = QtCore.pyqtSignal(int)
+    left_hand_count = QtCore.pyqtSignal(int)
 
     """ tracking modes """
     motion_tracking_mode = 0
@@ -85,6 +85,9 @@ class MainThread(QtCore.QThread, Config):
         super().__init__(parent)
         self._cam_id = cam_id
         self._primary = primary
+
+        if not self._primary:
+            self._modes.add(self.motion_tracking_mode)
 
     def run(self):
         """
@@ -598,8 +601,8 @@ class MainThread(QtCore.QThread, Config):
 
         self._box_and_blocks_left.reset_count()
         self._box_and_blocks_right.reset_count()
-        self.right_hand_count.emit(str(0))
-        self.left_hand_count.emit(str(0))
+        self.right_hand_count.emit(0)
+        self.left_hand_count.emit(0)
 
     def add_movements(self):
         """
@@ -659,8 +662,8 @@ class MainThread(QtCore.QThread, Config):
             )
             right = self._box_and_blocks_right.track_movement(self._hand_landmarks, self._boundary, handedness)
             left = self._box_and_blocks_left.track_movement(self._hand_landmarks, self._boundary, handedness)
-            self.right_hand_count.emit(str(right))
-            self.left_hand_count.emit(str(left))
+            self.right_hand_count.emit(right)
+            self.left_hand_count.emit(left)
 
         """
         count movements for steps tracking
@@ -674,7 +677,7 @@ class MainThread(QtCore.QThread, Config):
             self._img, left_count = self._left_step_tracker.track_movement(
                 self._pose_landmarks, self._img, self._source, view
             )
-            self.left_steps.emit(str(left_count))
+            self.left_steps.emit(left_count)
 
         """ track right steps """
         self._right_step_tracker.set_tracking_status(is_steps_enabled)
@@ -682,7 +685,7 @@ class MainThread(QtCore.QThread, Config):
             self._img, right_count = self._right_step_tracker.track_movement(
                 self._pose_landmarks, self._img, self._source, view
             )
-            self.right_steps.emit(str(right_count))
+            self.right_steps.emit(right_count)
 
         """ track standing time """
         self._standing_timer.set_tracking_status(is_steps_enabled)
@@ -702,7 +705,7 @@ class MainThread(QtCore.QThread, Config):
             self._img, self._right_arm_ext_count = self._right_arm_ext.track_movement(
                 self._pose_landmarks, self._img, self._source
             )
-            self.right_arm_ext.emit(str(self._right_arm_ext_count))
+            self.right_arm_ext.emit(self._right_arm_ext_count)
 
         """ left arm extensions """
         self._left_arm_ext.set_tracking_status(is_motion_enabled)
@@ -710,7 +713,7 @@ class MainThread(QtCore.QThread, Config):
             self._img, self._left_arm_ext_count = self._left_arm_ext.track_movement(
                 self._pose_landmarks, self._img, self._source
             )
-            self.left_arm_ext.emit(str(self._left_arm_ext_count))
+            self.left_arm_ext.emit(self._left_arm_ext_count)
 
         """ sit to stand """
         self._sit_to_stand.set_tracking_status(is_motion_enabled)
@@ -718,7 +721,7 @@ class MainThread(QtCore.QThread, Config):
             self._img, self._sit_to_stand_count = self._sit_to_stand.track_movement(
                 self._pose_landmarks, self._img, self._source,
             )
-            self.sit_to_stand.emit(str(self._sit_to_stand_count))
+            self.sit_to_stand.emit(self._sit_to_stand_count)
     
     def adjust_thresh(self, idx, value):
         """
@@ -831,30 +834,52 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             lambda text: self._main_thread.start_video_capture(source=int(text))
         )
 
+        """ worker thread counts """
+        self._worker_thread_counts = {
+            Util.RIGHT_ARM_REACH: 0,
+            Util.LEFT_ARM_REACH: 0,
+            Util.SIT_TO_STAND: 0,
+            Util.RIGHT_STEPS: 0,
+            Util.LEFT_STEPS: 0,
+            Util.RIGHT_HAND: 0,
+            Util.LEFT_HAND: 0,
+        }
+
         """ connect motion traking signals """
         self._main_thread.right_arm_ext.connect(
-            lambda count: self.right_arm_ext_count_label.setText(f"Right Arm Reach: {count}")
+            lambda count: self.right_arm_ext_count_label.setText(
+                f"{Util.RIGHT_ARM_REACH}: {count + self._worker_thread_counts[Util.RIGHT_ARM_REACH]}"
+            )
         )
         self._main_thread.left_arm_ext.connect(
-            lambda count: self.left_arm_ext_count_label.setText(f"Left Arm Reach: {count}")
+            lambda count: self.left_arm_ext_count_label.setText(
+                f"{Util.LEFT_ARM_REACH}: {count + self._worker_thread_counts[Util.LEFT_ARM_REACH]}"
+            )
         )
         self._main_thread.sit_to_stand.connect(
-            lambda count: self.sit_to_stand_count_label.setText(f"Sit to Stand: {count}")
+            lambda count: self.sit_to_stand_count_label.setText(
+                f"{Util.SIT_TO_STAND}: {count + self._worker_thread_counts[Util.SIT_TO_STAND]}"
+            )
         )
         self._main_thread.right_steps.connect(
-            lambda count: self.right_steps_count_label.setText(f"Right Steps: {count}")
+            lambda count: self.right_steps_count_label.setText(
+                f"{Util.RIGHT_STEPS}: {count + self._worker_thread_counts[Util.RIGHT_STEPS]}"
+            )
         )
         self._main_thread.left_steps.connect(
-            lambda count: self.left_steps_count_label.setText(f"Left Steps: {count}")
-        )
-        self._main_thread.standing_timer.connect(
-            lambda timer: self.standing_time_label.setText(f"Standing Time: {self.format_time(timer)}")
-        )
-        self._main_thread.left_hand_count.connect(
-            lambda count: self.left_hand_count_label.setText(f"Left Hand: {count}")
+            lambda count: self.left_steps_count_label.setText(
+                f"{Util.LEFT_STEPS}: {count + self._worker_thread_counts[Util.LEFT_STEPS]}"
+            )
         )
         self._main_thread.right_hand_count.connect(
-            lambda count: self.right_hand_count_label.setText(f"Right Hand: {count}")
+            lambda count: self.right_hand_count_label.setText(
+                f"{Util.RIGHT_HAND}: {count + self._worker_thread_counts[Util.RIGHT_HAND]}"
+            )
+        )
+        self._main_thread.left_hand_count.connect(
+            lambda count: self.left_hand_count_label.setText(
+                f"{Util.LEFT_HAND}: {count + self._worker_thread_counts[Util.LEFT_HAND]}"
+            )
         )
 
         """ connect start/stop pushbutton """
@@ -1005,7 +1030,26 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             self._worker_threads += (MainThread(cam_id=i, primary=False), )
             self._worker_threads[i-1].start()
 
+            self._worker_threads[i-1].right_arm_ext.connect(
+                lambda count: self.update_worker_thread_count(Util.RIGHT_ARM_REACH, count)
+            )
+            self._worker_threads[i-1].left_arm_ext.connect(
+                lambda count: self.update_worker_thread_count(Util.LEFT_ARM_REACH, count)
+            )
+            self._worker_threads[i-1].sit_to_stand.connect(
+                lambda count: self.update_worker_thread_count(Util.SIT_TO_STAND, count)
+            )
+
+            self.motion_tracking_checkBox.stateChanged.connect(
+                lambda: self.update_tracking_mode(
+                    self.motion_tracking_checkBox, self._worker_threads[i-1].motion_tracking_mode,
+                )
+            )
+
             self.start_pushButton.clicked.connect(self._worker_threads[i-1].start_stop_recording)
+
+    def update_worker_thread_count(self, movement, count):
+        self._worker_thread_counts[movement] = count
 
     def update_start_pushButton(self):
         """
@@ -1013,6 +1057,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
 
         """
         self._movements = self._main_thread.get_tracking_movements()
+        self._movements = self._worker_threads[0].get_tracking_movements()
 
         if self._main_thread.get_recording_status():
             """
@@ -1088,8 +1133,14 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
     def update_tracking_mode(self, check_box, mode):
         if check_box.isChecked():
             self._main_thread.update_modes(mode, update="add")
+            for i in range(1, self._num_channels):
+                if i >= self._max_num_cameras: break
+                self._worker_threads[i-1].update_modes(mode, update="add")
         else:
             self._main_thread.update_modes(mode, update="rm")
+            for i in range(1, self._num_channels):
+                if i >= self._max_num_cameras: break
+                self._worker_threads[i-1].update_modes(mode, update="rm")
 
     def mousePressEvent(self, event):
         print(f"x: {event.pos().x()}, y: {event.pos().y()}")

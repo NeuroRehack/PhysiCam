@@ -288,7 +288,7 @@
                 </font>
                </property>
                <property name="text">
-                <string>Right Arm Ext: 0</string>
+                <string>Right Arm Reach: 0</string>
                </property>
               </widget>
               <widget class="QLabel" name="left_arm_ext_count_label">
@@ -306,7 +306,7 @@
                 </font>
                </property>
                <property name="text">
-                <string>Left Arm Ext: 0</string>
+                <string>Left Arm Reach: 0</string>
                </property>
               </widget>
              </widget>

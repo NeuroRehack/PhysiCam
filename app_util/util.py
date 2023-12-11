@@ -83,6 +83,17 @@ class Util:
     LEFT = "Left"
     RIGHT = "Right"
 
+    """ movement labels """
+    RIGHT_ARM_REACH = "Right Arm Reach"
+    LEFT_ARM_REACH = "Left Arm Reach"
+    SIT_TO_STAND = "Sit to Stand"
+    RIGHT_STEPS = "Right Steps"
+    LEFT_STEPS = "Left Steps"
+    STANDING_TIME = "Standing Time"
+    LEFT_HAND = "Left Hand"
+    RIGHT_HAND = "Right Hand"
+
+
     def get_points(array, indices):
         out = list()
         for i in indices:
