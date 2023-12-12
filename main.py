@@ -30,8 +30,8 @@ from app_util.playback import Playback
 from app_util.movement import (
     ArmExtensions, SitToStand, StepTracker, BoxAndBlocks, BoundaryDetector, StandingTimer,
 )
-try: from coral.coral import Coral
-except ModuleNotFoundError as err: print(err)
+#try: from coral.coral import Coral
+#except ModuleNotFoundError as err: print(err)
 
 
 __author__ = "Mike Smith"
@@ -115,10 +115,17 @@ class MainThread(QtCore.QThread, Config):
         img_width = 1280 - 128/8
         img_height = 720 - 72/8
 
-        """ while camera / video file is opened """
-        while self._cap.isOpened() and self._active:
+        """ handle device with no cameras """
+        self.check_cameras()
 
-            ret, self._img = self._cap.read()
+        """ while camera / video file is opened """
+        while (self._no_cameras_detected or self._cap.isOpened()) and self._active:
+
+            if self._no_cameras_detected:
+                ret, self._img = True, np.zeros((Util.FRAME_HEIGHT, Util.FRAME_WIDTH, 3), dtype="uint8")
+            else:
+                ret, self._img = self._cap.read()
+
             self._is_camera_ready = True
 
             """ if camera not accessed or end of video """
@@ -248,7 +255,7 @@ class MainThread(QtCore.QThread, Config):
             )
 
             """ maintain max frame rate of ~30fps (mainly for smooth video playback) """
-            self._delay = self._delay + 0.01 if frame_rate > 30 else 0
+            self._delay = self._delay + 0.03 if frame_rate > 30 else 0
             time.sleep(self._delay)
 
             """ pause video """
@@ -270,6 +277,15 @@ class MainThread(QtCore.QThread, Config):
         """
         self._active = False
         self.wait()
+
+    def check_cameras(self):
+        try:
+            self._cap.isOpened()
+            self._no_cameras_detected = False
+        except AttributeError as err:
+            print(err)
+            self._no_cameras_detected = True
+            self.multiple_cams.emit(-1)
 
     def set_motion_tracking(self, tpu, init=False):
         """
@@ -395,6 +411,7 @@ class MainThread(QtCore.QThread, Config):
         cap = self.set_frame_dimensions(cap, "webcam")
 
         if self._is_recording and source is None: self.start_stop_recording()
+
         if cap.isOpened(): return cap
         print("error opening video stream or file")
         return None
@@ -441,6 +458,8 @@ class MainThread(QtCore.QThread, Config):
         self._read_file = File()
         file_type = self._read_file.get_file_type(name)
 
+        self._no_cameras_detected = False
+
         """ check that the file is valid and supported by program """
         if file_type == Util.MP4:   # *.mp4 files
             self._cap = self.get_video_capture(self._cap, name=name)
@@ -479,6 +498,7 @@ class MainThread(QtCore.QThread, Config):
             )
             #invalid_file_msg_box.setWindowIcon(get_icon())
             invalid_file_msg_box.exec()
+            self.check_cameras()
 
     def handle_exit(self, event):
         """
@@ -518,7 +538,7 @@ class MainThread(QtCore.QThread, Config):
             frame_rate = 1 / (frame_times["curr time"] - frame_times["prev time"])
         except ZeroDivisionError as err:
             frame_rate = 0
-            print(err)
+            #print(err)
 
         frame_times["prev time"] = frame_times["curr time"]
         return frame_rate
@@ -835,63 +855,49 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         )
 
         """ worker thread counts """
-        self._worker_thread_counts = {
-            Util.RIGHT_ARM_REACH: 0,
-            Util.LEFT_ARM_REACH: 0,
-            Util.SIT_TO_STAND: 0,
-            Util.RIGHT_STEPS: 0,
-            Util.LEFT_STEPS: 0,
-            Util.RIGHT_HAND: 0,
-            Util.LEFT_HAND: 0,
-        }
+        self._thread_counts = dict()
+        self._prev_move_time = 0
+
+        self._frame_rates = list()
+        self.start_pushButton.clicked.connect(self.update_start_pushButton)
+
+        self.connect_signals(self._main_thread)
+        self.actionCoral_TPU.setEnabled(False)
 
         """ connect motion traking signals """
         self._main_thread.right_arm_ext.connect(
-            lambda count: self.right_arm_ext_count_label.setText(
-                f"{Util.RIGHT_ARM_REACH}: {count + self._worker_thread_counts[Util.RIGHT_ARM_REACH]}"
-            )
+            lambda count: self.update_count(self._main_thread, Util.RIGHT_ARM_REACH, count)
         )
         self._main_thread.left_arm_ext.connect(
-            lambda count: self.left_arm_ext_count_label.setText(
-                f"{Util.LEFT_ARM_REACH}: {count + self._worker_thread_counts[Util.LEFT_ARM_REACH]}"
-            )
+            lambda count: self.update_count(self._main_thread, Util.LEFT_ARM_REACH, count)
         )
         self._main_thread.sit_to_stand.connect(
-            lambda count: self.sit_to_stand_count_label.setText(
-                f"{Util.SIT_TO_STAND}: {count + self._worker_thread_counts[Util.SIT_TO_STAND]}"
-            )
+            lambda count: self.update_count(self._main_thread, Util.SIT_TO_STAND, count)
         )
         self._main_thread.right_steps.connect(
-            lambda count: self.right_steps_count_label.setText(
-                f"{Util.RIGHT_STEPS}: {count + self._worker_thread_counts[Util.RIGHT_STEPS]}"
-            )
+            lambda count: self.right_steps_count_label.setText(f"{Util.RIGHT_STEPS}: {count}")
         )
         self._main_thread.left_steps.connect(
-            lambda count: self.left_steps_count_label.setText(
-                f"{Util.LEFT_STEPS}: {count + self._worker_thread_counts[Util.LEFT_STEPS]}"
-            )
+            lambda count: self.left_steps_count_label.setText(f"{Util.LEFT_STEPS}: {count}")
         )
         self._main_thread.right_hand_count.connect(
-            lambda count: self.right_hand_count_label.setText(
-                f"{Util.RIGHT_HAND}: {count + self._worker_thread_counts[Util.RIGHT_HAND]}"
-            )
+            lambda count: self.right_hand_count_label.setText(f"{Util.RIGHT_HAND}: {count}")
         )
         self._main_thread.left_hand_count.connect(
-            lambda count: self.left_hand_count_label.setText(
-                f"{Util.LEFT_HAND}: {count + self._worker_thread_counts[Util.LEFT_HAND]}"
-            )
+            lambda count: self.left_hand_count_label.setText(f"{Util.LEFT_HAND}: {count}")
         )
 
+    def connect_signals(self, thread):
+
         """ connect start/stop pushbutton """
-        self.start_pushButton.clicked.connect(self._main_thread.start_stop_recording)
-        self.start_pushButton.clicked.connect(self.update_start_pushButton)
+        self.start_pushButton.clicked.connect(thread.start_stop_recording)
 
         """ connect pause pushbutton """
-        self.pause_pushButton.clicked.connect(self._main_thread.pause)
+        self.pause_pushButton.clicked.connect(thread.pause)
 
         """ connect line edit """
         self.name_id_lineEdit.editingFinished.connect(
-            lambda: self._main_thread.update_name_id(self.name_id_lineEdit.text())
+            lambda: thread.update_name_id(self.name_id_lineEdit.text())
         )
 
         """ connect movement label signals """
@@ -901,52 +907,61 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self.actionOpen.triggered.connect(self.open_file)
         self.actionAdjust_Thresholds.triggered.connect(self.adjust_thresholds)
         self.actionWebcam.triggered.connect(
-            lambda: self._main_thread.start_video_capture()
+            lambda: thread.start_video_capture()
         )
         self.actionGenerate_CSV_File.triggered.connect(
-            lambda: self._main_thread.generate_file(self.actionGenerate_CSV_File.isChecked())
+            lambda: thread.generate_file(self.actionGenerate_CSV_File.isChecked())
         )
         self.actionBlur_Faces.triggered.connect(
-            lambda: self._main_thread.blur_faces(self.actionBlur_Faces.isChecked())
+            lambda: thread.blur_faces(self.actionBlur_Faces.isChecked())
         )
         self.actionSmooth_Motion_Tracking.triggered.connect(
-            lambda: self._main_thread.toggle_filter(self.actionSmooth_Motion_Tracking.isChecked())
+            lambda: thread.toggle_filter(self.actionSmooth_Motion_Tracking.isChecked())
         )
         self.actionHide_Video.triggered.connect(
-            lambda: self._main_thread.toggle_video(self.actionHide_Video.isChecked())
+            lambda: thread.toggle_video(self.actionHide_Video.isChecked())
         )
         self.actionCoral_TPU.triggered.connect(
-            lambda: self._main_thread.set_motion_tracking(self.actionCoral_TPU.isChecked())
+            lambda: thread.set_motion_tracking(self.actionCoral_TPU.isChecked())
         )
         self.actionIgnore_Primary.triggered.connect(
-            lambda: self._main_thread.ignore_primary(self.actionIgnore_Primary.isChecked())
+            lambda: thread.ignore_primary(self.actionIgnore_Primary.isChecked())
         )
         self.actionFlip_Frame.triggered.connect(self.flip_frame)
 
         """ connect check-box signals """
         self.motion_tracking_checkBox.stateChanged.connect(
             lambda: self.update_tracking_mode(
-                self.motion_tracking_checkBox, self._main_thread.motion_tracking_mode,
+                self.motion_tracking_checkBox, thread.motion_tracking_mode,
             )
         )
         self.steps_tracking_checkBox.stateChanged.connect(
             lambda: self.update_tracking_mode(
-                self.steps_tracking_checkBox, self._main_thread.steps_tracking_mode,
+                self.steps_tracking_checkBox, thread.steps_tracking_mode,
             )
         )
         self.hand_tracking_checkBox.stateChanged.connect(
             lambda: self.update_tracking_mode(
-                self.hand_tracking_checkBox, self._main_thread.hand_tracking_mode,
+                self.hand_tracking_checkBox, thread.hand_tracking_mode,
             )
         )
 
+        """ init movement counts for all threads """
+        self._thread_counts.update(
+            {
+                thread: {
+                    Util.LEFT_ARM_REACH: 0,
+                    Util.RIGHT_ARM_REACH: 0,
+                    Util.SIT_TO_STAND: 0,
+                }
+            }
+        )
+
         """ enable default tracking mode(s) """
-        if self._main_thread.get_corr_mode():
+        if thread.get_corr_mode():
             self.hand_tracking_checkBox.setChecked(True)
         else:
             self.motion_tracking_checkBox.setChecked(True)
-
-        self._frame_rates = []
 
     def flip_frame(self):
         self._main_thread.flip_frame(self.actionFlip_Frame.isChecked())
@@ -1019,6 +1034,10 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
 
     """ start multiple cameras """
     def multiple_cams(self, channels):
+
+        if channels == -1:
+            self.actionWebcam.setEnabled(False)
+
         print(f"{channels} cameras found")
         self._num_channels = channels
 
@@ -1030,26 +1049,35 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             self._worker_threads += (MainThread(cam_id=i, primary=False), )
             self._worker_threads[i-1].start()
 
+            self.connect_signals(self._worker_threads[i-1])
+
             self._worker_threads[i-1].right_arm_ext.connect(
-                lambda count: self.update_worker_thread_count(Util.RIGHT_ARM_REACH, count)
+                lambda count: self.update_count(self._worker_threads[i-1], Util.RIGHT_ARM_REACH, count)
             )
             self._worker_threads[i-1].left_arm_ext.connect(
-                lambda count: self.update_worker_thread_count(Util.LEFT_ARM_REACH, count)
+                lambda count: self.update_count(self._worker_threads[i-1], Util.LEFT_ARM_REACH, count)
             )
             self._worker_threads[i-1].sit_to_stand.connect(
-                lambda count: self.update_worker_thread_count(Util.SIT_TO_STAND, count)
+                lambda count: self.update_count(self._worker_threads[i-1], Util.SIT_TO_STAND, count)
             )
 
-            self.motion_tracking_checkBox.stateChanged.connect(
-                lambda: self.update_tracking_mode(
-                    self.motion_tracking_checkBox, self._worker_threads[i-1].motion_tracking_mode,
-                )
+    def update_count(self, thread, movement, count):
+
+        if movement == Util.SIT_TO_STAND:
+            self._thread_counts[thread].update({Util.SIT_TO_STAND: count})
+            self.sit_to_stand_count_label.setText(
+                f"{Util.SIT_TO_STAND}: {sum(c[Util.SIT_TO_STAND] for c in list(self._thread_counts.values()))}"
             )
-
-            self.start_pushButton.clicked.connect(self._worker_threads[i-1].start_stop_recording)
-
-    def update_worker_thread_count(self, movement, count):
-        self._worker_thread_counts[movement] = count
+        elif movement == Util.RIGHT_ARM_REACH:
+            self._thread_counts[thread].update({Util.RIGHT_ARM_REACH: count})
+            self.right_arm_ext_count_label.setText(
+                f"{Util.RIGHT_ARM_REACH}: {sum(c[Util.RIGHT_ARM_REACH] for c in list(self._thread_counts.values()))}"
+            )
+        elif movement == Util.LEFT_ARM_REACH:
+            self._thread_counts[thread].update({Util.LEFT_ARM_REACH: count})
+            self.left_arm_ext_count_label.setText(
+                f"{Util.LEFT_ARM_REACH}: {sum(c[Util.LEFT_ARM_REACH] for c in list(self._thread_counts.values()))}"
+            )
 
     def update_start_pushButton(self):
         """
@@ -1057,9 +1085,10 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
 
         """
         self._movements = self._main_thread.get_tracking_movements()
-        self._movements = self._worker_threads[0].get_tracking_movements()
 
-        if self._main_thread.get_recording_status():
+        #print(self._thread_counts)
+
+        if not self._main_thread.get_recording_status():
             """
             print tracking movements status to terminal
             (only used for testing)
