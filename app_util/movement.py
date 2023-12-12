@@ -277,6 +277,9 @@ class Generic:
         """
         return self._count
     
+    def decrement_count(self):
+        self._count -= 1
+    
 
 class ArmExtensions(Generic):
     """

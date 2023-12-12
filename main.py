@@ -89,6 +89,9 @@ class MainThread(QtCore.QThread, Config):
         if not self._primary:
             self._modes.add(self.motion_tracking_mode)
 
+    def __str__(self):
+        return f"thread {self._cam_id}"
+
     def run(self):
         """
         main worker thread
@@ -624,6 +627,14 @@ class MainThread(QtCore.QThread, Config):
         self.right_hand_count.emit(0)
         self.left_hand_count.emit(0)
 
+    def decrement_count(self, movement):
+        if movement == Util.RIGHT_ARM_REACH:
+            self._right_arm_ext.decrement_count()
+        elif movement == Util.LEFT_ARM_REACH:
+            self._left_arm_ext.decrement_count()
+        elif movement == Util.SIT_TO_STAND:
+            self._sit_to_stand.decrement_count()
+
     def add_movements(self):
         """
         add step tracking and standing timer
@@ -857,6 +868,16 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         """ worker thread counts """
         self._thread_counts = dict()
         self._prev_move_time = 0
+        self._prev_count_times = {
+            Util.RIGHT_ARM_REACH: 0,
+            Util.LEFT_ARM_REACH: 0,
+            Util.SIT_TO_STAND: 0,
+        }
+        self._prev_counts = {
+            Util.RIGHT_ARM_REACH: 0,
+            Util.LEFT_ARM_REACH: 0,
+            Util.SIT_TO_STAND: 0,
+        }
 
         self._frame_rates = list()
         self.start_pushButton.clicked.connect(self.update_start_pushButton)
@@ -1062,22 +1083,26 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             )
 
     def update_count(self, thread, movement, count):
+        self._thread_counts[thread].update({movement: count})
+        new_count = sum(c[movement] for c in list(self._thread_counts.values()))
 
+        if new_count > self._prev_counts[movement]:
+
+            if time.time() > self._prev_count_times[movement] + Util.MULTI_CAM_DELAY_THRESH:
+                self._prev_count_times[movement] = time.time()
+                self._prev_counts[movement] = new_count
+                self.display_count(movement, new_count)
+            else:
+                thread.decrement_count(movement)
+                self._prev_counts[movement] = new_count - 1
+
+    def display_count(self, movement, count):
         if movement == Util.SIT_TO_STAND:
-            self._thread_counts[thread].update({Util.SIT_TO_STAND: count})
-            self.sit_to_stand_count_label.setText(
-                f"{Util.SIT_TO_STAND}: {sum(c[Util.SIT_TO_STAND] for c in list(self._thread_counts.values()))}"
-            )
+            self.sit_to_stand_count_label.setText(f"{movement}: {count}")
         elif movement == Util.RIGHT_ARM_REACH:
-            self._thread_counts[thread].update({Util.RIGHT_ARM_REACH: count})
-            self.right_arm_ext_count_label.setText(
-                f"{Util.RIGHT_ARM_REACH}: {sum(c[Util.RIGHT_ARM_REACH] for c in list(self._thread_counts.values()))}"
-            )
+            self.right_arm_ext_count_label.setText(f"{movement}: {count}")
         elif movement == Util.LEFT_ARM_REACH:
-            self._thread_counts[thread].update({Util.LEFT_ARM_REACH: count})
-            self.left_arm_ext_count_label.setText(
-                f"{Util.LEFT_ARM_REACH}: {sum(c[Util.LEFT_ARM_REACH] for c in list(self._thread_counts.values()))}"
-            )
+            self.left_arm_ext_count_label.setText(f"{movement}: {count}")
 
     def update_start_pushButton(self):
         """

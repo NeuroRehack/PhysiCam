@@ -72,6 +72,8 @@ class Util:
     FRONT_VIEW = 1
     REAR_VIEW = 2
 
+    MULTI_CAM_DELAY_THRESH = 0.5
+
     """ init tuple (used for bounding box) """
     INIT = (0, 0)
 
