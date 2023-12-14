@@ -2,7 +2,7 @@
 main.py
 
 The main file contains two thread classes:
-- `class MainThread(QtCore.QThread)`
+- `class CameraThread(QtCore.QThread)`
     - Back-end thread
     - Handles camera access, motion tracking
     and counting reps
@@ -41,7 +41,7 @@ __status__ = "Prototype"
 __credits__ = ["Agnethe Kaasen", "Live Myklebust", "Amber Spurway"]
 
 
-class MainThread(QtCore.QThread, Config):
+class CameraThread(QtCore.QThread, Config):
     """
     back-end worker thread: handles camera access, motion tracking
     and counting reps
@@ -78,7 +78,7 @@ class MainThread(QtCore.QThread, Config):
     right_arm_reach_shoulder_angle = 4
 
     def __init__(self, cam_id=0, primary=True, parent=None):
-        """"
+        """
         init method: initialises the parent classes
 
         """
@@ -86,10 +86,15 @@ class MainThread(QtCore.QThread, Config):
         self._cam_id = cam_id
         self._primary = primary
 
+        """ add default motion tracking mode to all secondary camera threads """
         if not self._primary:
             self._modes.add(self.motion_tracking_mode)
 
     def __str__(self):
+        """
+        print representation method for worker threads
+
+        """
         return f"thread {self._cam_id}"
 
     def run(self):
@@ -152,8 +157,10 @@ class MainThread(QtCore.QThread, Config):
                 while not self._is_recording and self._source != Util.WEBCAM: pass
                 continue
 
-            """ create blank frame if 'hide_video' is True """
-            self._blank_frame = np.zeros_like(self._img, dtype="uint8") if self._hide_video else None
+            """ create blank frame if 'hide_video' or 'ignore_promary' is True """
+            self._blank_frame = np.zeros_like(self._img, dtype="uint8") if (
+                self._hide_video or self._ignore_primary
+             ) else None
 
             """ get frame dimensions """
             self._shape = self._img.shape
@@ -167,7 +174,7 @@ class MainThread(QtCore.QThread, Config):
 
             """ 
             corr_mode: used for timeseries correlation with sensors 
-            requires txt file with tmestamps corresponding to each frame
+            requires txt file with timestamps corresponding to each frame
             
             """
             if self._corr_mode and self._file_name is not None and not self._file_read:
@@ -240,8 +247,9 @@ class MainThread(QtCore.QThread, Config):
                     self._img = self._coral.display_landmarks(self._img, self._tpu_landmarks)
                 elif not self._ignore_primary:
                     self._motion.draw(
-                        self._blank_frame if self._hide_video and self._blank_frame is not None else self._img, 
-                        self._pose_landmarks, begin, end
+                        self._blank_frame if (
+                            self._hide_video and self._blank_frame is not None 
+                        ) else self._img, self._pose_landmarks, begin, end
                     )
 
                 """ parse movement data to file object """
@@ -253,8 +261,9 @@ class MainThread(QtCore.QThread, Config):
 
             """ display a blank frame if 'hide video' is enabled """
             self.emit_qt_img(
-                self._blank_frame if self._hide_video and self._blank_frame  is not None else self._img, 
-                (width, height), (img_width, img_height)
+                self._blank_frame if (
+                    (self._hide_video or self._ignore_primary) and self._blank_frame is not None
+                ) else self._img, (width, height), (img_width, img_height)
             )
 
             """ maintain max frame rate of ~30fps (mainly for smooth video playback) """
@@ -282,6 +291,10 @@ class MainThread(QtCore.QThread, Config):
         self.wait()
 
     def check_cameras(self):
+        """
+        check is there are any valid cameras connected to host device
+        
+        """
         try:
             self._cap.isOpened()
             self._no_cameras_detected = False
@@ -298,7 +311,7 @@ class MainThread(QtCore.QThread, Config):
 
         """
         if tpu:
-            try: self._coral = Coral()
+            try: pass #self._coral = Coral()
             except ValueError as err:
                 tpu_error_msg_box = QtWidgets.QMessageBox()
                 tpu_error_msg_box.setWindowTitle("Coral TPU Error")
@@ -345,7 +358,8 @@ class MainThread(QtCore.QThread, Config):
         (enable to improve performance of secondary camera(s) is primary camera is not used)
         
         """
-        self._ignore_primary = ignore
+        if self._primary:
+            self._ignore_primary = ignore
 
     def emit_qt_img(self, img, size, img_size):
         """
@@ -628,6 +642,12 @@ class MainThread(QtCore.QThread, Config):
         self.left_hand_count.emit(0)
 
     def decrement_count(self, movement):
+        """
+        method for decrementing counts for a specific 'movement'
+        used only when multiple cameras are used
+        will decrement count if the same movement is counted by multiple cameras
+
+        """
         if movement == Util.RIGHT_ARM_REACH:
             self._right_arm_ext.decrement_count()
         elif movement == Util.LEFT_ARM_REACH:
@@ -840,7 +860,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._num_channels = 0
 
         """ init main thread """
-        self._main_thread = MainThread(cam_id=0, primary=True)
+        self._main_thread = CameraThread(cam_id=0, primary=True)
         self._main_thread.start()
 
         """ connect back-end signals """
@@ -985,6 +1005,10 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             self.motion_tracking_checkBox.setChecked(True)
 
     def flip_frame(self):
+        """
+        manually flip frame if using external cameras
+
+        """
         self._main_thread.flip_frame(self.actionFlip_Frame.isChecked())
 
         time.sleep(1)
@@ -1038,6 +1062,10 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             self.hand_tracking_groupBox.setDisabled(False)
 
     def format_time(self, time):
+        """
+        return session time is specified format
+
+        """
         return "%d:%02d:%02d" % (time // 3600, time // 60, time % 60)
 
     def display_frame_rate(self, frame_rate):
@@ -1053,9 +1081,12 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             )
             self._frame_rates = []    
 
-    """ start multiple cameras """
     def multiple_cams(self, channels):
+        """
+        set up worker threads for multiple cameras
+        a new thread is created for every valid camera detected
 
+        """
         if channels == -1:
             self.actionWebcam.setEnabled(False)
 
@@ -1067,7 +1098,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         for i in range(1, self._num_channels):
             if i >= self._max_num_cameras: break
 
-            self._worker_threads += (MainThread(cam_id=i, primary=False), )
+            self._worker_threads += (CameraThread(cam_id=i, primary=False), )
             self._worker_threads[i-1].start()
 
             self.connect_signals(self._worker_threads[i-1])
@@ -1083,6 +1114,11 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             )
 
     def update_count(self, thread, movement, count):
+        """
+        update the movement count values
+        ignores any double-ups in movement detections when using multiple cameras
+        
+        """
         self._thread_counts[thread].update({movement: count})
         new_count = sum(c[movement] for c in list(self._thread_counts.values()))
 
@@ -1097,6 +1133,10 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
                 self._prev_counts[movement] = new_count - 1
 
     def display_count(self, movement, count):
+        """
+        display the updated count values to the gui
+        
+        """
         if movement == Util.SIT_TO_STAND:
             self.sit_to_stand_count_label.setText(f"{movement}: {count}")
         elif movement == Util.RIGHT_ARM_REACH:
@@ -1111,8 +1151,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         """
         self._movements = self._main_thread.get_tracking_movements()
 
-        #print(self._thread_counts)
-
         if not self._main_thread.get_recording_status():
             """
             print tracking movements status to terminal
@@ -1126,6 +1164,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
 
     def update_movement(self):
         """
+        updates current movement
+        takes in user input from the movement line edit
+        outputs the movement label to the generated csv file
         
         """
         if self.movement_set_pushButton.isChecked():
@@ -1151,6 +1192,11 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._main_thread.get_file(self._file_name[0])
 
     def adjust_thresholds(self):
+        """
+        method to set up the threshold adjustments ui
+        (in development)
+
+        """
         self._thresh_window = ThreshWindow()
         self._thresh_window.show()
 
@@ -1180,11 +1226,11 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             )
         )
 
-    """ 
-    callback functions for updating tracking modes 
-    
-    """
     def update_tracking_mode(self, check_box, mode):
+        """ 
+        callback functions for updating tracking modes 
+        
+        """
         if check_box.isChecked():
             self._main_thread.update_modes(mode, update="add")
             for i in range(1, self._num_channels):
@@ -1197,9 +1243,18 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
                 self._worker_threads[i-1].update_modes(mode, update="rm")
 
     def mousePressEvent(self, event):
+        """
+        prints mouse click co-ords to the terminal
+        (no used)
+        
+        """
         print(f"x: {event.pos().x()}, y: {event.pos().y()}")
 
     def closeEvent(self, event):
+        """
+        handles user exiting the program
+        
+        """
         self._main_thread.handle_exit(event)
         
 
