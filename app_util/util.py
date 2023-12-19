@@ -9,6 +9,7 @@ see "doc/util.md" for more details
 import time
 import numpy as np
 from scipy import signal as sig
+from PyQt5 import QtGui
 
 
 __author__ = "Mike Smith"
@@ -20,7 +21,6 @@ __credits__ = [
     "Live Myklebust", 
     "Amber Spurway"
 ]
-
 
 class Util:
 
@@ -94,6 +94,10 @@ class Util:
     STANDING_TIME = "Standing Time"
     LEFT_HAND = "Left Hand"
     RIGHT_HAND = "Right Hand"
+
+
+    def get_icon(): 
+        return QtGui.QIcon(Util.ICON_FILE_PATH)
 
 
     def get_points(array, indices):

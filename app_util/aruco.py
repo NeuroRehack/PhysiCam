@@ -43,12 +43,14 @@ class Aruco:
             self._corners, self._ids, self._rejected = detector.detectMarkers(img)
 
             # TO-DO: draw aruco orientation
+            '''
             if len(self._corners) > 0:
                 for i in range(0, len(self._ids)):
                 
                     rvec, tvec, mp = cv.aruco.estimatePoseSingleMarkers(self._corners[i], 0.03, mtx, dist)
                     print(f"Pose Estimation - Marker {i + 1}:\nRotation Vector (rvec): {rvec}\nTranslation Vector (tvec): {tvec}")
                     img = cv.drawFrameAxes(img, mtx, dist, rvec, tvec, 1, 3)
+            '''
 
             img = self.display_aruco(img, detected)
 

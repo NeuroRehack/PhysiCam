@@ -127,7 +127,7 @@ class Motion():
         self._lpf_buf_x = {key: list() for key in range(33)}
         self._lpf_buf_y = {key: list() for key in range(33)}
         self._lpf_buf_z = {key: list() for key in range(33)}
-        self._lpf_buf_len = 5
+        self._lpf_buf_len = 3
 
     def track_motion(self, img, landmarks, curr_time, blur_faces, debug=False, dynamic=True, filter=True):
 
