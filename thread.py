@@ -57,11 +57,11 @@ class CameraThread(QtCore.QThread, Config):
     hand_tracking_mode = 2
 
     """ thresholds ids """
-    sit_to_stand_hip_angle = 0
-    left_arm_reach_elbow_angle = 1
-    left_arm_reach_shoulder_angle = 2
-    right_arm_reach_elbow_angle = 3
-    right_arm_reach_shoulder_angle = 4
+    sit_to_stand_hip_angle_id = 0
+    left_arm_reach_elbow_angle_id = 1
+    left_arm_reach_shoulder_angle_id = 2
+    right_arm_reach_elbow_angle_id = 3
+    right_arm_reach_shoulder_angle_id = 4
 
     def __init__(self, cam_id=0, primary=True, parent=None):
         """
@@ -650,10 +650,10 @@ class CameraThread(QtCore.QThread, Config):
         self._standing_timer = StandingTimer(is_steps_enabled, debug=False)
 
         self._left_step_tracker = StepTracker(is_steps_enabled, Util.LEFT, debug=False)
-        self._tracking_movements.update({"left steps": self._left_step_tracker})
+        self._tracking_movements.update({Util.LEFT_STEPS: self._left_step_tracker})
 
         self._right_step_tracker = StepTracker(is_steps_enabled, Util.RIGHT, debug=False)
-        self._tracking_movements.update({"right steps": self._right_step_tracker})
+        self._tracking_movements.update({Util.RIGHT_STEPS: self._right_step_tracker})
 
         """ 
         add "box and blocks" counting (hand tracking)
@@ -663,10 +663,10 @@ class CameraThread(QtCore.QThread, Config):
         self._boundary_detector = BoundaryDetector(aruco=True)
 
         self._box_and_blocks_left = BoxAndBlocks(is_hands_enabled, Util.LEFT, debug=False)
-        self._tracking_movements.update({"left hand": self._box_and_blocks_left})
+        self._tracking_movements.update({Util.LEFT_HAND: self._box_and_blocks_left})
 
         self._box_and_blocks_right = BoxAndBlocks(is_hands_enabled, Util.RIGHT, debug=False)
-        self._tracking_movements.update({"right hand": self._box_and_blocks_right})
+        self._tracking_movements.update({Util.RIGHT_HAND: self._box_and_blocks_right})
 
         """
         add general motion tracking (arm extenstions & sit to stand)
@@ -675,13 +675,13 @@ class CameraThread(QtCore.QThread, Config):
         is_motion_enabled = self.motion_tracking_mode in self._modes
 
         self._right_arm_ext = ArmExtensions(is_motion_enabled, Util.RIGHT, debug=False)
-        self._tracking_movements.update({"right arm ext": self._right_arm_ext})
+        self._tracking_movements.update({Util.RIGHT_ARM_REACH: self._right_arm_ext})
 
         self._left_arm_ext = ArmExtensions(is_motion_enabled, Util.LEFT, debug=False)
-        self._tracking_movements.update({"left arm ext": self._left_arm_ext})
+        self._tracking_movements.update({Util.LEFT_ARM_REACH: self._left_arm_ext})
 
         self._sit_to_stand = SitToStand(is_motion_enabled, ignore_vis=True, debug=False)
-        self._tracking_movements.update({"sit to stand": self._sit_to_stand})
+        self._tracking_movements.update({Util.SIT_TO_STAND: self._sit_to_stand})
 
     def count_movements(self, cropped, begin, end, view):
         """ 
@@ -765,19 +765,19 @@ class CameraThread(QtCore.QThread, Config):
         calback function for adjusting angular thresholds (in development)
 
         """
-        if idx == self.left_arm_reach_elbow_angle:
+        if idx == self.left_arm_reach_elbow_angle_id:
             self._left_arm_ext.left_arm_reach_elbow_angle = value
             thresh_win.left_elbow_label.setText(f"{value}")
 
-        elif idx == self.left_arm_reach_shoulder_angle:
+        elif idx == self.left_arm_reach_shoulder_angle_id:
             self._left_arm_ext.left_arm_reach_shoulder_angle = value
             thresh_win.left_shoulder_label.setText(f"{value}")
 
-        elif idx == self.right_arm_reach_elbow_angle:
+        elif idx == self.right_arm_reach_elbow_angle_id:
             self._right_arm_ext.right_arm_reach_elbow_angle = value
             thresh_win.right_elbow_label.setText(f"{value}")
 
-        elif idx == self.right_arm_reach_shoulder_angle:
+        elif idx == self.right_arm_reach_shoulder_angle_id:
             self._right_arm_ext.right_arm_reach_shoulder_angle = value
             thresh_win.right_shoulder_label.setText(f"{value}")
 

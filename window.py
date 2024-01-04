@@ -387,32 +387,32 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         except: 
             self._thresh_prev_launch_time = time.time()
 
-        self._thresh_window = ThreshWindow()
+        self._thresh_window = ThreshWindow(self._main_thread.get_tracking_movements())
         self._thresh_window.show()
 
         self._thresh_window.sit_to_stand_hip_angle.connect(
             lambda value: self._main_thread.adjust_thresh(
-                self._main_thread.sit_to_stand_hip_angle, value, self._thresh_window
+                self._main_thread.sit_to_stand_hip_angle_id, value, self._thresh_window
             )
         )
         self._thresh_window.left_arm_reach_elbow_angle.connect(
             lambda value: self._main_thread.adjust_thresh(
-                self._main_thread.left_arm_reach_elbow_angle, value, self._thresh_window
+                self._main_thread.left_arm_reach_elbow_angle_id, value, self._thresh_window
             )
         )
         self._thresh_window.left_arm_reach_shoulder_angle.connect(
             lambda value: self._main_thread.adjust_thresh(
-                self._main_thread.left_arm_reach_shoulder_angle, value, self._thresh_window
+                self._main_thread.left_arm_reach_shoulder_angle_id, value, self._thresh_window
             )
         )
         self._thresh_window.right_arm_reach_elbow_angle.connect(
             lambda value: self._main_thread.adjust_thresh(
-                self._main_thread.right_arm_reach_elbow_angle, value, self._thresh_window
+                self._main_thread.right_arm_reach_elbow_angle_id, value, self._thresh_window
             )
         )
         self._thresh_window.right_arm_reach_shoulder_angle.connect(
             lambda value: self._main_thread.adjust_thresh(
-                self._main_thread.right_arm_reach_shoulder_angle, value, self._thresh_window
+                self._main_thread.right_arm_reach_shoulder_angle_id, value, self._thresh_window
             )
         )
 

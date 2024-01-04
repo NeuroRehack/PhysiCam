@@ -312,6 +312,12 @@ class ArmExtensions(Generic):
         self._vel_frame = list()
         self._vel_frame_len = 5
 
+    def get_thresh(self):
+        if self._left_or_right == Util.LEFT:
+            return (self.left_arm_reach_elbow_angle, self.left_arm_reach_shoulder_angle)
+        elif self._left_or_right == Util.RIGHT:
+            return (self.right_arm_reach_elbow_angle, self.right_arm_reach_shoulder_angle)
+
     def track_movement(self, landmarks, img, source):
         """
         count the number of reps for the movement
@@ -405,6 +411,7 @@ class SitToStand(Generic):
     sit-to-stand class
 
     """
+    sit_to_stand_hip_angle = 130
 
     def __init__(self, is_tracking, ignore_vis=False, debug=False):
 
@@ -436,8 +443,9 @@ class SitToStand(Generic):
             left_body_grad = self.find_gradient(img.shape, p, ignore_vis=self._ignore_vis,)
 
             if right_hip_angle > 0 and left_hip_angle > 0:
-                self._frame.append(right_hip_angle > 130 or left_hip_angle > 130)
-
+                self._frame.append(
+                    right_hip_angle > self.sit_to_stand_hip_angle or left_hip_angle > self.sit_to_stand_hip_angle
+                )
                 if len(self._frame) > self._frame_len:
                     self._frame = self._frame[-self._frame_len:]
                     
@@ -456,6 +464,7 @@ class StepTracker(Generic):
     step-tracking class
 
     """
+    step_tracking_knee_angle = 155
 
     def __init__(self, is_tracking, left_or_right, ignore_vis=False, debug=False):
         """
@@ -517,7 +526,7 @@ class StepTracker(Generic):
                 img = self.debug(img, source, landmarks, view, knee_angle, foot_grad)
 
             """ count steps """
-            if knee_angle > 155 and 0 < foot_grad < 0.5 and thigh_grad > 1:
+            if knee_angle > self.step_tracking_knee_angle and 0 < foot_grad < 0.5 and thigh_grad > 1:
                 if self._left_or_right == Util.LEFT and self._debug:
                     start = (landmarks[Motion.left_heel][1], landmarks[Motion.left_heel][2])
                     end = (landmarks[Motion.left_toes][1], landmarks[Motion.left_toes][2])
@@ -631,6 +640,7 @@ class StandingTimer(Generic):
     class to track stanting time
 
     """
+    standing_timer_hip_angle = 150
 
     def __init__(self, is_tracking, ignore_vis=False, debug=False):
 
@@ -667,7 +677,7 @@ class StandingTimer(Generic):
             p = Util.get_points(landmarks, self._right_hip_angle_points)
             right_hip_angle = self.find_angle(img.shape, p, ignore_vis=True)
 
-            if left_hip_angle > 150 or right_hip_angle > 150:
+            if left_hip_angle > self.standing_timer_hip_angle or right_hip_angle > self.standing_timer_hip_angle:
                 is_standing = True
 
         diff_time = time.time() - self._prev_time if self._prev_time is not None else 0
