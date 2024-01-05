@@ -58,10 +58,11 @@ class CameraThread(QtCore.QThread, Config):
 
     """ thresholds ids """
     sit_to_stand_hip_angle_id = 0
-    left_arm_reach_elbow_angle_id = 1
-    left_arm_reach_shoulder_angle_id = 2
-    right_arm_reach_elbow_angle_id = 3
-    right_arm_reach_shoulder_angle_id = 4
+    sit_to_stand_body_angle_id = 1
+    left_arm_reach_elbow_angle_id = 2
+    left_arm_reach_shoulder_angle_id = 3
+    right_arm_reach_elbow_angle_id = 4
+    right_arm_reach_shoulder_angle_id = 5
 
     def __init__(self, cam_id=0, primary=True, parent=None):
         """
@@ -347,6 +348,9 @@ class CameraThread(QtCore.QThread, Config):
         if self._primary:
             self._ignore_primary = ignore
 
+    def update_primary(self, status):
+        self._primary = status
+
     def emit_qt_img(self, img, size, img_size):
         """
         function to emit the viewfinder image to the main window thread
@@ -356,19 +360,18 @@ class CameraThread(QtCore.QThread, Config):
         img_width, img_height = img_size
         
         """ flip image if accessed from webcam """
-        if self._source == Util.WEBCAM and self._flip: img = cv.flip(img, 1)
+        if self._source == Util.WEBCAM and self._flip: 
+            img = cv.flip(img, 1)
 
-        """ show frame from second camera """
-        if not self._primary and not self._no_cameras_detected:
+        if not self._primary and not self._no_cameras_detected: # show frame from second camera
             cv.imshow(f"PhysiCam: {self._cam_id}", img)
             cv.waitKey(1)
-
-        """ emit image signal to the main-window thread to be displayed """
-        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
-        QtImg = QtGui.QImage(
-            img.data, width, height, QtGui.QImage.Format_RGB888
-        ).scaled(int(img_width), int(img_height), QtCore.Qt.KeepAspectRatio)
-        self.image.emit(QtImg)
+        else:   # emit image signal to the main-window thread to be displayed
+            img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+            QtImg = QtGui.QImage(
+                img.data, width, height, QtGui.QImage.Format_RGB888
+            ).scaled(int(img_width), int(img_height), QtCore.Qt.KeepAspectRatio)
+            self.image.emit(QtImg)
 
     def start_video_capture(self, source=None):
         """
@@ -780,6 +783,15 @@ class CameraThread(QtCore.QThread, Config):
         elif idx == self.right_arm_reach_shoulder_angle_id:
             self._right_arm_ext.right_arm_reach_shoulder_angle = value
             thresh_win.right_shoulder_label.setText(f"{value}")
+
+        elif idx == self.sit_to_stand_hip_angle_id:
+            self._sit_to_stand.sit_to_stand_hip_angle = value
+            thresh_win.sitToStand_hip_label.setText(f"{value}")
+
+        elif idx == self.sit_to_stand_body_angle_id:
+            self._sit_to_stand.sit_to_stand_body_gradient = Util.angle_to_gradient(value)
+            thresh_win.sitToStand_body_label.setText(f"{value}, {Util.angle_to_gradient(value)}")
+            
 
     """ get functions used in the the main window thread """
     def get_tracking_movements(self): return self._tracking_movements.copy()

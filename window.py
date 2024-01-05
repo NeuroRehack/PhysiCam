@@ -6,6 +6,7 @@ see "doc/window.md" for more details
 """
 
 import time
+import cv2 as cv
 from PyQt5 import QtWidgets, QtGui
 from statistics import mean
 from app_util import gui_main
@@ -64,8 +65,11 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._main_thread.refresh_source.connect(
             lambda: self.source_comboBox.clear()
         )
+        self._curr_primary = 0
+        self._worker_threads = None
         self.source_comboBox.currentIndexChanged.connect(
-            lambda text: self._main_thread.start_video_capture(source=int(text))
+            #lambda text: self._main_thread.start_video_capture(source=int(text))
+            lambda text: self.primary_source_changed(int(text))
         )
 
         """ worker thread counts """
@@ -262,7 +266,16 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             self.framerate_label.setText(
                 f"Frame Rate: {round(mean(self._frame_rates), 1)} fps"
             )
-            self._frame_rates = []    
+            self._frame_rates = []  
+
+    def primary_source_changed(self, new_idx):
+        if self._worker_threads is None:
+            return
+        
+        if self._curr_primary == 0:
+            self._main_thread.update_primary(False)
+            self._worker_threads[new_idx - 1].update_primary(True)
+            self._worker_threads[new_idx - 1].image.connect(self.update_frame)
 
     def multiple_cams(self, channels):
         """
@@ -393,6 +406,11 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._thresh_window.sit_to_stand_hip_angle.connect(
             lambda value: self._main_thread.adjust_thresh(
                 self._main_thread.sit_to_stand_hip_angle_id, value, self._thresh_window
+            )
+        )
+        self._thresh_window.sit_to_stand_body_angle.connect(
+            lambda value: self._main_thread.adjust_thresh(
+                self._main_thread.sit_to_stand_body_angle_id, value, self._thresh_window
             )
         )
         self._thresh_window.left_arm_reach_elbow_angle.connect(

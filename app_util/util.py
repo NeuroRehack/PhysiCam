@@ -7,6 +7,7 @@ see "doc/util.md" for more details
 
 """
 import time
+import math
 import numpy as np
 from scipy import signal as sig
 from PyQt5 import QtGui
@@ -124,3 +125,9 @@ class Util:
         out = sig.sosfilt(sos, np.array(data))
 
         return out.copy()
+    
+    def gradient_to_angle(gradient):
+        return int(math.degrees(math.atan(gradient)))
+    
+    def angle_to_gradient(angle):
+        return round(math.tan(math.radians(angle)), 1)

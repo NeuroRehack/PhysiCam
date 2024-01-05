@@ -24,6 +24,7 @@ class ThreshWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_thresh.Ui_MainW
 
     """
     sit_to_stand_hip_angle = QtCore.pyqtSignal(int)
+    sit_to_stand_body_angle = QtCore.pyqtSignal(int)
 
     left_arm_reach_elbow_angle = QtCore.pyqtSignal(int)
     left_arm_reach_shoulder_angle = QtCore.pyqtSignal(int)
@@ -44,6 +45,9 @@ class ThreshWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_thresh.Ui_MainW
         self.sitToStand_hipAngle_horizontalSlider.valueChanged.connect(
             lambda value: self.sit_to_stand_hip_angle.emit(int(value))
         )
+        self.sitToStand_bodyAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.sit_to_stand_body_angle.emit(int(value))
+        )
         self.leftArmReach_elbowAngle_horizontalSlider.valueChanged.connect(
             lambda value: self.left_arm_reach_elbow_angle.emit(int(value))
         )
@@ -56,6 +60,14 @@ class ThreshWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_thresh.Ui_MainW
         self.rightArmReach_shoulderAngle_horizontalSlider.valueChanged.connect(
             lambda value: self.right_arm_reach_shoulder_angle.emit(int(value))
         )
+
+        value = self._tracking_movements.get(Util.SIT_TO_STAND).get_thresh()[0]
+        self.sitToStand_hipAngle_horizontalSlider.setValue(value)
+        self.sitToStand_hip_label.setText(f"{value}")
+
+        value = self._tracking_movements.get(Util.SIT_TO_STAND).get_thresh()[1]
+        self.sitToStand_bodyAngle_horizontalSlider.setValue(value)
+        self.sitToStand_body_label.setText(f"{value}, {Util.angle_to_gradient(value)}")
 
         value = self._tracking_movements.get(Util.RIGHT_ARM_REACH).get_thresh()[0]
         self.rightArmReach_elbowAngle_horizontalSlider.setValue(value)

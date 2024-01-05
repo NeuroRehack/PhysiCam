@@ -312,12 +312,6 @@ class ArmExtensions(Generic):
         self._vel_frame = list()
         self._vel_frame_len = 5
 
-    def get_thresh(self):
-        if self._left_or_right == Util.LEFT:
-            return (self.left_arm_reach_elbow_angle, self.left_arm_reach_shoulder_angle)
-        elif self._left_or_right == Util.RIGHT:
-            return (self.right_arm_reach_elbow_angle, self.right_arm_reach_shoulder_angle)
-
     def track_movement(self, landmarks, img, source):
         """
         count the number of reps for the movement
@@ -405,6 +399,12 @@ class ArmExtensions(Generic):
 
         return img
     
+    def get_thresh(self):
+        if self._left_or_right == Util.LEFT:
+            return (self.left_arm_reach_elbow_angle, self.left_arm_reach_shoulder_angle)
+        elif self._left_or_right == Util.RIGHT:
+            return (self.right_arm_reach_elbow_angle, self.right_arm_reach_shoulder_angle)
+    
 
 class SitToStand(Generic):
     """
@@ -412,6 +412,7 @@ class SitToStand(Generic):
 
     """
     sit_to_stand_hip_angle = 130
+    sit_to_stand_body_gradient = 5
 
     def __init__(self, is_tracking, ignore_vis=False, debug=False):
 
@@ -449,7 +450,11 @@ class SitToStand(Generic):
                 if len(self._frame) > self._frame_len:
                     self._frame = self._frame[-self._frame_len:]
                     
-                    if all(self._frame) and self._reset and right_body_grad > 5 and left_body_grad > 5:
+                    if (
+                        all(self._frame) and self._reset 
+                        and right_body_grad > self.sit_to_stand_body_gradient
+                        and left_body_grad > self.sit_to_stand_body_gradient
+                    ):
                         self._count += 1
                         self._reset = False
 
@@ -457,6 +462,12 @@ class SitToStand(Generic):
                         self._reset = True
 
         return img, self._count
+    
+    def get_thresh(self):
+        return (
+            self.sit_to_stand_hip_angle, 
+            Util.gradient_to_angle(self.sit_to_stand_body_gradient)
+        )
 
 
 class StepTracker(Generic):
