@@ -774,7 +774,7 @@ class BoundaryDetector:
 
     """
 
-    lst_size = 20
+    lst_size = 10
 
     def __init__(self, aruco=True):
         """

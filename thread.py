@@ -9,6 +9,7 @@ import time
 import cv2 as cv
 import numpy as np
 from PyQt5 import QtCore, QtWidgets, QtGui
+from app_util import gui_cam
 from app_util.config import Config
 from app_util.util import Util
 from app_util.motion import Motion, Hand, Faces
@@ -26,6 +27,32 @@ __date__ = "19/12/2023"
 __status__ = "Prototype"
 __credits__ = ["Agnethe Kaasen", "Live Myklebust", "Amber Spurway"]
 
+
+class CamWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_cam.Ui_MainWindow):
+
+    ignore = QtCore.pyqtSignal(bool)
+
+    def __init__(self, thread, cam_id, parent=None):
+        super().__init__(parent)
+
+        """ set up gui """
+        self.setupUi(self)
+        self.setWindowTitle(f"PhysiCam {cam_id}")
+        self.setWindowIcon(Util.get_icon())
+
+        self._cam_id = cam_id
+        thread.image.connect(self.update_frame)
+        self.ignore.emit(False)
+
+    def update_frame(self, img):
+        self.img_label.setPixmap(QtGui.QPixmap(img))
+
+    def update_thread(self, thread):
+        thread.image.connect(self.update_frame)
+
+    def closeEvent(self, event):
+        print(f"Thread: {self._cam_id}, Event: {event}")
+        self.ignore.emit(True)
 
 class CameraThread(QtCore.QThread, Config):
     """
@@ -56,14 +83,6 @@ class CameraThread(QtCore.QThread, Config):
     steps_tracking_mode = 1
     hand_tracking_mode = 2
 
-    """ thresholds ids """
-    sit_to_stand_hip_angle_id = 0
-    sit_to_stand_body_angle_id = 1
-    left_arm_reach_elbow_angle_id = 2
-    left_arm_reach_shoulder_angle_id = 3
-    right_arm_reach_elbow_angle_id = 4
-    right_arm_reach_shoulder_angle_id = 5
-
     def __init__(self, cam_id=0, primary=True, parent=None):
         """
         init method: initialises the parent classes
@@ -76,6 +95,10 @@ class CameraThread(QtCore.QThread, Config):
         """ add default motion tracking mode to all secondary camera threads """
         if not self._primary:
             self._modes.add(self.motion_tracking_mode)
+            self._cam_window = CamWindow(self, self._cam_id)
+            self._cam_window.ignore.connect(self.ignore)
+            self._cam_window.show()
+
 
     def __str__(self):
         """
@@ -113,6 +136,8 @@ class CameraThread(QtCore.QThread, Config):
         """ handle device with no cameras """
         self.check_cameras()
 
+        aruco_frame_count = 0
+
         """ while camera / video file is opened """
         while (self._no_cameras_detected or self._cap.isOpened()) and self._active:
 
@@ -144,10 +169,10 @@ class CameraThread(QtCore.QThread, Config):
                 while not self._is_recording and self._source != Util.WEBCAM: pass
                 continue
 
-            """ create blank frame if 'hide_video' or 'ignore_promary' is True """
+            """ create blank frame if 'hide_video' or 'ignore_primary' is True """
             self._blank_frame = np.zeros_like(self._img, dtype="uint8") if (
-                self._hide_video or self._ignore_primary
-             ) else None
+                self._hide_video or self._ignore
+            ) else None
 
             """ get frame dimensions """
             self._shape = self._img.shape
@@ -176,7 +201,7 @@ class CameraThread(QtCore.QThread, Config):
             """ get the time since start of session """
             if self._start_time is not None and self._is_recording and not self._is_paused:
                 
-                if self._save_video and not self._ignore_primary:
+                if self._save_video and not self._ignore:
                     self._video_recording.parse_video_frame(self._img, self._session_time)
 
                 """ corr mode: use time-stamps file is provided """
@@ -195,8 +220,13 @@ class CameraThread(QtCore.QThread, Config):
 
             """ detect aruco (in hand tracking mode only) """
             self._detected = list()
-            if self.hand_tracking_mode in self._modes:
+            #if self.hand_tracking_mode in self._modes:
+
+            if aruco_frame_count >= 2:
                 self._aruco.find_aruco(self._img, self._detected)
+                aruco_frame_count = 0
+            else:
+                aruco_frame_count += 1
 
             """ detect lines """
             self._img_lines, self._boundary = self._boundary_detector.detect_boundary(
@@ -215,7 +245,7 @@ class CameraThread(QtCore.QThread, Config):
                 """ run movenet pose estimation if tpu enabled """
                 if self._tpu:
                     self._tpu_landmarks = self._coral.get_landmarks(self._img)
-                elif not self._ignore_primary:
+                elif not self._ignore:
                     self._img, begin, end, cropped, view = self._motion.track_motion(
                         self._img, self._pose_landmarks, self._session_time, self._blur_faces,
                         debug=False, dynamic=True, filter=self._filter,
@@ -226,13 +256,13 @@ class CameraThread(QtCore.QThread, Config):
 
                 """ count the number of reps for each movement """
                 if self._tpu: pass
-                elif not self._ignore_primary:
+                elif not self._ignore:
                     self.count_movements(cropped, begin, end, view)
 
                 """ draw stick figure overlay (draw after hand detection in "count_movements()) """
                 if self._tpu:
                     self._img = self._coral.display_landmarks(self._img, self._tpu_landmarks)
-                elif not self._ignore_primary:
+                elif not self._ignore:
                     self._motion.draw(
                         self._blank_frame if (
                             self._hide_video and self._blank_frame is not None 
@@ -240,16 +270,17 @@ class CameraThread(QtCore.QThread, Config):
                     )
 
                 """ parse movement data to file object """
-                if self._session_time is not None and not self._ignore_primary:
+                if self._session_time is not None and not self._ignore:
                     self._write_file.parse_movements(
                         self._tracking_movements, self._pose_landmarks, self._session_time,
-                        self._img.shape, self._curr_movement, self._flip, corr_mode=self._corr_mode,
+                        self._img.shape, self._curr_movement, self._flip, self._boundary,
+                        corr_mode=self._corr_mode,
                     )
 
             """ display a blank frame if 'hide video' is enabled """
             self.emit_qt_img(
                 self._blank_frame if (
-                    (self._hide_video or self._ignore_primary) and self._blank_frame is not None
+                    (self._hide_video or self._ignore) and self._blank_frame is not None
                 ) else self._img, (width, height), (img_width, img_height)
             )
 
@@ -279,7 +310,7 @@ class CameraThread(QtCore.QThread, Config):
 
     def check_cameras(self):
         """
-        check is there are any valid cameras connected to host device
+        checks if there are any valid cameras connected to host device
         
         """
         try:
@@ -339,17 +370,31 @@ class CameraThread(QtCore.QThread, Config):
         """
         self._flip = flip
 
-    def ignore_primary(self, ignore):
+    def ignore(self, ig):
         """
         ignore the motion tracking for the primary camera
         (enable to improve performance of secondary camera(s) is primary camera is not used)
         
         """
-        if self._primary:
-            self._ignore_primary = ignore
+        self._ignore = ig
 
     def update_primary(self, status):
+        """
+        updates the status of the current camera thread
+        - "status" -> bool: whether current camera thread is primary or not
+
+        """
+        if self._primary:
+            self._cam_window = CamWindow(self, self._cam_id)
+            self._cam_window.ignore.connect(self.ignore)
+            self._cam_window.show()
+        else:
+            self._cam_window.close()
+
         self._primary = status
+
+        if self._primary:
+            self.ignore(False)
 
     def emit_qt_img(self, img, size, img_size):
         """
@@ -363,15 +408,15 @@ class CameraThread(QtCore.QThread, Config):
         if self._source == Util.WEBCAM and self._flip: 
             img = cv.flip(img, 1)
 
-        if not self._primary and not self._no_cameras_detected: # show frame from second camera
-            cv.imshow(f"PhysiCam: {self._cam_id}", img)
-            cv.waitKey(1)
-        else:   # emit image signal to the main-window thread to be displayed
-            img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
-            QtImg = QtGui.QImage(
-                img.data, width, height, QtGui.QImage.Format_RGB888
-            ).scaled(int(img_width), int(img_height), QtCore.Qt.KeepAspectRatio)
-            self.image.emit(QtImg)
+        #if not self._primary and not self._no_cameras_detected: # show frame from second camera
+            #cv.imshow(f"PhysiCam: {self._cam_id}", img)
+            #cv.waitKey(1)
+        #else:   # emit image signal to the main-window thread to be displayed
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+        QtImg = QtGui.QImage(
+            img.data, width, height, QtGui.QImage.Format_RGB888
+        ).scaled(int(img_width), int(img_height), QtCore.Qt.KeepAspectRatio)
+        self.image.emit(QtImg)
 
     def start_video_capture(self, source=None):
         """
@@ -530,7 +575,7 @@ class CameraThread(QtCore.QThread, Config):
 
             button_handler = handle_exit_msg_box.clickedButton()
             button_clicked = handle_exit_msg_box.standardButton(button_handler)
-            if button_clicked == QtWidgets.QMessageBox.Yes and not self._ignore_primary:
+            if button_clicked == QtWidgets.QMessageBox.Yes and not self._ignore:
                 self._write_file.write(self._name_id, self._filetime, self._cam_id)
 
     def get_frame_rate(self, frame_times):
@@ -563,7 +608,7 @@ class CameraThread(QtCore.QThread, Config):
 
             if self._save_video:
                 self._video_recording = VideoFile(save=self._save_video)
-                if not self._ignore_primary:
+                if not self._ignore:
                     self._video_recording.start_video(self._filetime, self._img.shape, self._cam_id)
 
             if self._stop_time is not None and (
@@ -581,10 +626,10 @@ class CameraThread(QtCore.QThread, Config):
             self._stop_time = time.time()
 
             """ write to csv file """
-            if not self._ignore_primary:
+            if not self._ignore:
                 self._write_file.write(self._name_id, self._filetime, self._cam_id)
 
-            if self._save_video and not self._ignore_primary:
+            if self._save_video and not self._ignore:
                 self._video_recording.end_video()
 
     def pause(self):
@@ -643,6 +688,10 @@ class CameraThread(QtCore.QThread, Config):
             self._left_arm_ext.decrement_count()
         elif movement == Util.SIT_TO_STAND:
             self._sit_to_stand.decrement_count()
+        elif movement == Util.RIGHT_STEPS:
+            self._right_step_tracker.decrement_count()
+        elif movement == Util.LEFT_STEPS:
+            self._left_step_tracker.decrement_count()
 
     def add_movements(self):
         """
@@ -763,35 +812,53 @@ class CameraThread(QtCore.QThread, Config):
             )
             self.sit_to_stand.emit(self._sit_to_stand_count)
     
-    def adjust_thresh(self, idx, value, thresh_win):
+    def adjust_thresh(self, thresh_win): # idx, value, thresh_win):
         """
-        calback function for adjusting angular thresholds (in development)
+        callback function for adjusting angular thresholds
 
         """
-        if idx == self.left_arm_reach_elbow_angle_id:
-            self._left_arm_ext.left_arm_reach_elbow_angle = value
-            thresh_win.left_elbow_label.setText(f"{value}")
+        thresh_win.sit_to_stand_hip_angle.connect(
+            lambda value: sit_to_stand_hip_angle(value)
+        )
+        thresh_win.sit_to_stand_body_angle.connect(
+            lambda value: sit_to_stand_body_gradient(value)
+        )
+        thresh_win.left_arm_reach_elbow_angle.connect(
+            lambda value: left_arm_reach_elbow_angle(value)
+        )
+        thresh_win.left_arm_reach_shoulder_angle.connect(
+            lambda value: left_arm_reach_shoulder_angle(value)
+        )
+        thresh_win.right_arm_reach_elbow_angle.connect(
+            lambda value: right_arm_reach_elbow_angle(value)
+        )
+        thresh_win.right_arm_reach_shoulder_angle.connect(
+            lambda value: right_arm_reach_shoulder_angle(value)
+        )
 
-        elif idx == self.left_arm_reach_shoulder_angle_id:
-            self._left_arm_ext.left_arm_reach_shoulder_angle = value
-            thresh_win.left_shoulder_label.setText(f"{value}")
-
-        elif idx == self.right_arm_reach_elbow_angle_id:
-            self._right_arm_ext.right_arm_reach_elbow_angle = value
-            thresh_win.right_elbow_label.setText(f"{value}")
-
-        elif idx == self.right_arm_reach_shoulder_angle_id:
-            self._right_arm_ext.right_arm_reach_shoulder_angle = value
-            thresh_win.right_shoulder_label.setText(f"{value}")
-
-        elif idx == self.sit_to_stand_hip_angle_id:
+        def sit_to_stand_hip_angle(value):
             self._sit_to_stand.sit_to_stand_hip_angle = value
             thresh_win.sitToStand_hip_label.setText(f"{value}")
 
-        elif idx == self.sit_to_stand_body_angle_id:
+        def sit_to_stand_body_gradient(value):
             self._sit_to_stand.sit_to_stand_body_gradient = Util.angle_to_gradient(value)
             thresh_win.sitToStand_body_label.setText(f"{value}, {Util.angle_to_gradient(value)}")
-            
+
+        def left_arm_reach_elbow_angle(value):
+            self._left_arm_ext.left_arm_reach_elbow_angle = value
+            thresh_win.left_elbow_label.setText(f"{value}")
+
+        def left_arm_reach_shoulder_angle(value):
+            self._left_arm_ext.left_arm_reach_shoulder_angle = value
+            thresh_win.left_shoulder_label.setText(f"{value}")
+
+        def right_arm_reach_elbow_angle(value):
+            self._right_arm_ext.right_arm_reach_elbow_angle = value
+            thresh_win.right_elbow_label.setText(f"{value}")
+
+        def right_arm_reach_shoulder_angle(value):
+            self._right_arm_ext.right_arm_reach_shoulder_angle = value
+            thresh_win.right_shoulder_label.setText(f"{value}")
 
     """ get functions used in the the main window thread """
     def get_tracking_movements(self): return self._tracking_movements.copy()
@@ -804,7 +871,8 @@ class CameraThread(QtCore.QThread, Config):
     """ set/toggle function set by user inputs from the main window thread """
     def update_name_id(self, name_id): self._name_id = name_id
     def update_movement(self, movement): self._curr_movement = movement
-    def generate_file(self, is_checked): self._save_file = is_checked
+    def generate_csv_file(self, is_checked): self._save_file = is_checked
+    def save_video_file(self, is_checked): self._save_video = is_checked
     def blur_faces(self, is_checked): self._blur_faces = is_checked
     def toggle_filter(self, is_checked): self._filter = is_checked
     def toggle_video(self, is_checked): self._hide_video = is_checked

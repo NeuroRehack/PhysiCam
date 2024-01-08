@@ -72,19 +72,20 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             lambda text: self.primary_source_changed(int(text))
         )
 
+        self.actionOpen.triggered.connect(self.open_file)
+        self.actionAdjust_Thresholds.triggered.connect(self.adjust_thresholds)
+
         """ worker thread counts """
         self._thread_counts = dict()
         self._prev_move_time = 0
-        self._prev_count_times = {
-            Util.RIGHT_ARM_REACH: 0,
-            Util.LEFT_ARM_REACH: 0,
-            Util.SIT_TO_STAND: 0,
-        }
         self._prev_counts = {
             Util.RIGHT_ARM_REACH: 0,
             Util.LEFT_ARM_REACH: 0,
             Util.SIT_TO_STAND: 0,
+            Util.RIGHT_STEPS: 0,
+            Util.LEFT_STEPS: 0,
         }
+        self._prev_count_times = self._prev_counts.copy()
 
         self._frame_rates = list()
         self.start_pushButton.clicked.connect(self.update_start_pushButton)
@@ -101,6 +102,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         )
         self._main_thread.sit_to_stand.connect(
             lambda count: self.update_count(self._main_thread, Util.SIT_TO_STAND, count)
+        )
+        self._main_thread.standing_timer.connect(
+            lambda timer: self.standing_time_label.setText(f"Standing Time: {self.format_time(timer)}")
         )
         self._main_thread.right_steps.connect(
             lambda count: self.right_steps_count_label.setText(f"{Util.RIGHT_STEPS}: {count}")
@@ -132,13 +136,14 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self.movement_set_pushButton.clicked.connect(self.update_movement)
 
         """ connect action triggers """
-        self.actionOpen.triggered.connect(self.open_file)
-        self.actionAdjust_Thresholds.triggered.connect(self.adjust_thresholds)
         self.actionWebcam.triggered.connect(
             lambda: thread.start_video_capture()
         )
         self.actionGenerate_CSV_File.triggered.connect(
-            lambda: thread.generate_file(self.actionGenerate_CSV_File.isChecked())
+            lambda: thread.generate_csv_file(self.actionGenerate_CSV_File.isChecked())
+        )
+        self.actionSave_Video_File.triggered.connect(
+            lambda: thread.save_video_file(self.actionGenerate_CSV_File.isChecked())
         )
         self.actionBlur_Faces.triggered.connect(
             lambda: thread.blur_faces(self.actionBlur_Faces.isChecked())
@@ -151,9 +156,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         )
         self.actionCoral_TPU.triggered.connect(
             lambda: thread.set_motion_tracking(self.actionCoral_TPU.isChecked())
-        )
-        self.actionIgnore_Primary.triggered.connect(
-            lambda: thread.ignore_primary(self.actionIgnore_Primary.isChecked())
         )
         self.actionFlip_Frame.triggered.connect(self.flip_frame)
 
@@ -181,6 +183,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
                     Util.LEFT_ARM_REACH: 0,
                     Util.RIGHT_ARM_REACH: 0,
                     Util.SIT_TO_STAND: 0,
+                    Util.LEFT_STEPS: 0,
+                    Util.RIGHT_STEPS: 0,
+                    Util.STANDING_TIME: 0,
                 }
             }
         )
@@ -210,10 +215,10 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         """
         self.img_label.setPixmap(QtGui.QPixmap(img))
 
-        if self._main_thread.get_input_source() == Util.VIDEO or self._num_channels > 1:
-            self.source_comboBox.setEnabled(False)
-        else:
-            self.source_comboBox.setEnabled(True)
+        #if self._main_thread.get_input_source() == Util.VIDEO or self._num_channels > 1:
+            #self.source_comboBox.setEnabled(False)
+        #else:
+            #self.source_comboBox.setEnabled(True)
 
         if self._main_thread.get_recording_status():
             self.start_pushButton.setText("Stop")
@@ -273,9 +278,22 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             return
         
         if self._curr_primary == 0:
+            self._main_thread.image.disconnect()
             self._main_thread.update_primary(False)
             self._worker_threads[new_idx - 1].update_primary(True)
             self._worker_threads[new_idx - 1].image.connect(self.update_frame)
+        elif new_idx == 0:
+            self._worker_threads[self._curr_primary - 1].image.disconnect()
+            self._worker_threads[self._curr_primary - 1].update_primary(False)
+            self._main_thread.update_primary(True)
+            self._main_thread.image.connect(self.update_frame)
+        else:
+            self._worker_threads[self._curr_primary - 1].image.disconnect()
+            self._worker_threads[self._curr_primary - 1].update_primary(False)
+            self._worker_threads[new_idx - 1].update_primary(True)
+            self._worker_threads[new_idx - 1].image.connect(self.update_frame)
+        
+        self._curr_primary = new_idx
 
     def multiple_cams(self, channels):
         """
@@ -309,6 +327,13 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
                 lambda count: self.update_count(self._worker_threads[i-1], Util.SIT_TO_STAND, count)
             )
 
+            self._worker_threads[i-1].right_steps.connect(
+                lambda count: self.update_count(self._worker_threads[i-1], Util.RIGHT_STEPS, count)
+            )
+            self._worker_threads[i-1].left_steps.connect(
+                lambda count: self.update_count(self._worker_threads[i-1], Util.LEFT_STEPS, count)
+            )
+
     def update_count(self, thread, movement, count):
         """
         update the movement count values
@@ -339,6 +364,11 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             self.right_arm_ext_count_label.setText(f"{movement}: {count}")
         elif movement == Util.LEFT_ARM_REACH:
             self.left_arm_ext_count_label.setText(f"{movement}: {count}")
+
+        elif movement == Util.RIGHT_STEPS:
+            self.right_steps_count_label.setText(f"{movement}: {count}")
+        elif movement == Util.LEFT_STEPS:
+            self.left_steps_count_label.setText(f"{movement}: {count}")
 
     def update_start_pushButton(self):
         """
@@ -403,36 +433,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._thresh_window = ThreshWindow(self._main_thread.get_tracking_movements())
         self._thresh_window.show()
 
-        self._thresh_window.sit_to_stand_hip_angle.connect(
-            lambda value: self._main_thread.adjust_thresh(
-                self._main_thread.sit_to_stand_hip_angle_id, value, self._thresh_window
-            )
-        )
-        self._thresh_window.sit_to_stand_body_angle.connect(
-            lambda value: self._main_thread.adjust_thresh(
-                self._main_thread.sit_to_stand_body_angle_id, value, self._thresh_window
-            )
-        )
-        self._thresh_window.left_arm_reach_elbow_angle.connect(
-            lambda value: self._main_thread.adjust_thresh(
-                self._main_thread.left_arm_reach_elbow_angle_id, value, self._thresh_window
-            )
-        )
-        self._thresh_window.left_arm_reach_shoulder_angle.connect(
-            lambda value: self._main_thread.adjust_thresh(
-                self._main_thread.left_arm_reach_shoulder_angle_id, value, self._thresh_window
-            )
-        )
-        self._thresh_window.right_arm_reach_elbow_angle.connect(
-            lambda value: self._main_thread.adjust_thresh(
-                self._main_thread.right_arm_reach_elbow_angle_id, value, self._thresh_window
-            )
-        )
-        self._thresh_window.right_arm_reach_shoulder_angle.connect(
-            lambda value: self._main_thread.adjust_thresh(
-                self._main_thread.right_arm_reach_shoulder_angle_id, value, self._thresh_window
-            )
-        )
+        self._main_thread.adjust_thresh(self._thresh_window)
+        for th in self._worker_threads:
+            th.adjust_thresh(self._thresh_window)
 
     def update_tracking_mode(self, check_box, mode):
         """ 

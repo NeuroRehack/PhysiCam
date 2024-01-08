@@ -207,7 +207,7 @@ class CsvFile(File):
                 dict_writer.writerow(d)
 
     def parse_movements(
-            self, movements, landmarks, curr_time, shape, curr_movement, flipped,
+            self, movements, landmarks, curr_time, shape, curr_movement, flipped, aruco,
             corr_mode=False,
         ):
         """
@@ -233,7 +233,8 @@ class CsvFile(File):
             self._keys.insert(3, "")
             self._keys.insert(4, "current movement")
             self._keys.insert(5, "frame flipped")
-            self._keys.insert(6, "")
+            self._keys.insert(6, "aruco position")
+            self._keys.insert(7, "")
             self._keys.append("")
 
             for i in range(33):
@@ -253,6 +254,7 @@ class CsvFile(File):
                 "resolution": shape,
                 "current movement": curr_movement,
                 "frame flipped": 1 if flipped else 0,
+                "aruco position": aruco,
             }
             for key, value in movements.items():
                 data[key] = None
