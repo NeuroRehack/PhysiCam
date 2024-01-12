@@ -88,7 +88,9 @@ class VideoFile(File):
         self._video_out = None
         self._timestamps = list()
 
-    def start_video(self, filetime, shape, cam_id):
+        self._max_file_count = 0
+
+    def start_video(self, filetime, shape, cam_id, count):
         """
         start saving to a new video file
 
@@ -103,11 +105,11 @@ class VideoFile(File):
             os.mkdir(self.video_path)
 
         """ create a sub-dir to store the video file and timestamps file """
-        if not os.path.exists(f"{self.video_path}/{filetime}-{cam_id}"):
-            os.mkdir(f"{self.video_path}/{filetime}-{cam_id}")
+        if not os.path.exists(f"{self.video_path}/{filetime}"):
+            os.mkdir(f"{self.video_path}/{filetime}")
 
         """ create the video writer object """
-        self._fname = f"{self.video_path}/{filetime}-{cam_id}/{filetime}-{cam_id}"
+        self._fname = f"{self.video_path}/{filetime}/{filetime}-{count}-cam{cam_id}"
         self._video_out = cv.VideoWriter(
             f"{self._fname}.avi", cv.VideoWriter_fourcc(*'XVID'), 30, (w, h),
         )
@@ -179,7 +181,8 @@ class CsvFile(File):
 
         """
         if not self._save_file or len(self._data) == 0:
-            print("Empty File")
+            if self._save_file == True:
+                print("Empty File")
             return False
         
         self._max_file_count = max(self._max_file_count, count)
@@ -313,6 +316,6 @@ class CsvFile(File):
             data[key] = None
 
             if movements[key].get_tracking_status():
-                data[key] = movement_counts[key]
+                data[key] = movement_counts.get(key)
 
         self._data.append(data)

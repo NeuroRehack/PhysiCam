@@ -9,7 +9,7 @@ import time
 import cv2 as cv
 import numpy as np
 from PyQt5 import QtCore, QtWidgets, QtGui
-from app_util import gui_cam
+from app_gui import gui_cam
 from app_util.config import Config
 from app_util.util import Util
 from app_util.motion import Motion, Hand, Faces
@@ -19,8 +19,11 @@ from app_util.playback import Playback
 from app_util.movement import (
     ArmExtensions, SitToStand, StepTracker, BoxAndBlocks, BoundaryDetector, StandingTimer,
 )
-from coral.coral import Coral
-
+try:
+    from coral.coral import Coral
+    is_coral_available = True
+except:
+    is_coral_available = False
 
 __author__ = "Mike Smith"
 __email__ = "dongming.shi@uqconnect.edu.au"
@@ -283,15 +286,26 @@ class CameraThread(QtCore.QThread, Config):
                         corr_mode=self._corr_mode,
                     )
 
-                    if self._session_time > self._file_save_count * 10: #* 5 * 60:
-                        if not (
-                            self._write_file.write(self._name_id, self._filetime, self._cam_id, self._file_save_count)
-                        ):
-                            self._file_save_count = 1
+                    if self._session_time > self._file_save_count * Util.FILE_SAVE_INTERVAL:
 
-                        self._write_file = CsvFile(save=self._save_file)
-                        self.write_file.emit(self._file_save_count)
-                        self._file_save_count += 1
+                        incremented = False
+
+                        if self._write_file.write(
+                            self._name_id, self._filetime, self._cam_id, self._file_save_count
+                        ):
+                            self._write_file = CsvFile(save=self._save_file)
+                            self.write_file.emit(self._file_save_count)
+                            self._file_save_count += 1
+                            incremented = True
+
+                        if self._save_video and not self._ignore and self._video_recording is not None:
+                            self._video_recording.end_video()
+                            self._video_recording = VideoFile(save=self._save_video)
+                            self._video_recording.start_video(
+                                self._filetime, self._img.shape, self._cam_id, self._file_save_count
+                            )
+                            if not incremented:
+                                self._file_save_count += 1
 
             """ display a blank frame if 'hide video' is enabled """
             self.emit_qt_img(
@@ -344,7 +358,7 @@ class CameraThread(QtCore.QThread, Config):
         - tpu disabled: runs the mediapipe model on cpu
 
         """
-        if tpu:
+        if tpu and is_coral_available:
             try: 
                 self._coral = Coral()
             except ValueError as err:
@@ -601,7 +615,6 @@ class CameraThread(QtCore.QThread, Config):
             if button_clicked == QtWidgets.QMessageBox.Yes and not self._ignore:
                 self._write_file.write(self._name_id, self._filetime, self._cam_id, self._file_save_count)
                 self.write_file.emit(self._file_save_count)
-                self._file_save_count = 1
 
     def get_frame_rate(self, frame_times):
         """
@@ -614,7 +627,6 @@ class CameraThread(QtCore.QThread, Config):
             frame_rate = 1 / (frame_times["curr time"] - frame_times["prev time"])
         except ZeroDivisionError as err:
             frame_rate = 0
-            #print(err)
 
         frame_times["prev time"] = frame_times["curr time"]
         return frame_rate
@@ -631,11 +643,14 @@ class CameraThread(QtCore.QThread, Config):
             self._filetime = Util.create_filename() # create new file object
             self._write_file = CsvFile(save=self._save_file)
 
+            self._file_save_count = 1
+
             if self._save_video:
                 self._video_recording = VideoFile(save=self._save_video)
                 if not self._ignore:
-                    self._video_recording.start_video(self._filetime, self._img.shape, self._cam_id)
-                    self._file_save_count = 1
+                    self._video_recording.start_video(
+                        self._filetime, self._img.shape, self._cam_id, self._file_save_count
+                    )
 
             if self._stop_time is not None and (
                 self._source == Util.VIDEO or self._is_paused
@@ -645,10 +660,8 @@ class CameraThread(QtCore.QThread, Config):
                 self._start_time = time.time()
 
             """ resets all movement count if accessed from webcam """
-            #print("reset before")
             if self._source == Util.WEBCAM:
                 self.reset_all_count()
-                #print("reset after")
 
         else:
             self._stop_time = time.time()
@@ -657,7 +670,6 @@ class CameraThread(QtCore.QThread, Config):
             if not self._ignore:
                 self._write_file.write(self._name_id, self._filetime, self._cam_id, self._file_save_count)
                 self.write_file.emit(self._file_save_count)
-                self._file_save_count = 1
 
             if self._save_video and not self._ignore:
                 self._video_recording.end_video()
@@ -733,7 +745,7 @@ class CameraThread(QtCore.QThread, Config):
         is_steps_enabled = self.steps_tracking_mode in self._modes
 
         self._standing_timer = StandingTimer(is_steps_enabled, debug=False)
-        self._tracking_movements.update({Util.STANDING_TIME: self._standing_timer})
+        #self._tracking_movements.update({Util.STANDING_TIME: self._standing_timer})
 
         self._left_step_tracker = StepTracker(is_steps_enabled, Util.LEFT, debug=False)
         self._tracking_movements.update({Util.LEFT_STEPS: self._left_step_tracker})
@@ -760,11 +772,11 @@ class CameraThread(QtCore.QThread, Config):
         """
         is_motion_enabled = self.motion_tracking_mode in self._modes
 
-        self._right_arm_ext = ArmExtensions(is_motion_enabled, Util.RIGHT, debug=False)
-        self._tracking_movements.update({Util.RIGHT_ARM_REACH: self._right_arm_ext})
-
         self._left_arm_ext = ArmExtensions(is_motion_enabled, Util.LEFT, debug=False)
         self._tracking_movements.update({Util.LEFT_ARM_REACH: self._left_arm_ext})
+
+        self._right_arm_ext = ArmExtensions(is_motion_enabled, Util.RIGHT, debug=False)
+        self._tracking_movements.update({Util.RIGHT_ARM_REACH: self._right_arm_ext})
 
         self._sit_to_stand = SitToStand(is_motion_enabled, ignore_vis=True, debug=False)
         self._tracking_movements.update({Util.SIT_TO_STAND: self._sit_to_stand})
@@ -948,8 +960,8 @@ class CameraThread(QtCore.QThread, Config):
     """ set/toggle function set by user inputs from the main window thread """
     def update_name_id(self, name_id): self._name_id = name_id
     def update_movement(self, movement): self._curr_movement = movement
-    def generate_csv_file(self, is_checked): self._save_file = is_checked
-    def save_video_file(self, is_checked): self._save_video = is_checked
     def blur_faces(self, is_checked): self._blur_faces = is_checked
     def toggle_filter(self, is_checked): self._filter = is_checked
     def toggle_video(self, is_checked): self._hide_video = is_checked
+    def generate_csv_file(self, is_checked): self._save_file = is_checked
+    def save_video_file(self, is_checked): self._save_video = is_checked

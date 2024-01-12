@@ -9,7 +9,7 @@ import time
 import cv2 as cv
 from PyQt5 import QtWidgets, QtGui, QtCore
 from statistics import mean
-from app_util import gui_main, gui_thresh
+from app_gui import gui_main, gui_thresh
 from app_util.file import CsvFile
 from app_util.util import Util
 from thread import CameraThread
@@ -27,7 +27,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
     front-end main-window thread: handles graphical user interface
 
     """
-
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -86,7 +85,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self.start_pushButton.clicked.connect(self.update_start_pushButton)
 
         self.connect_signals(self._main_thread)
-        #self.actionCoral_TPU.setEnabled(False)
+        self.actionCoral_TPU.setEnabled(False)
 
         self._multicam_delay_thresh = Util.MULTI_CAM_DELAY_THRESH
 
@@ -569,37 +568,47 @@ class ThreshWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_thresh.Ui_MainW
             lambda value: self.standing_timer_body_angle.emit(int(value))
         )
 
-        self.multipleCams_delay_horizontalSlider.setValue(multicam_delay * 1000)
+        self.multipleCams_delay_horizontalSlider.setValue(int(multicam_delay * 1000))
         self.multicam_delay_label.setText(f"{multicam_delay}")
+        
+        sit_to_stand = self._tracking_movements.get(Util.SIT_TO_STAND)
+        if sit_to_stand is not None:
+            hip_angle, body_angle = sit_to_stand.get_thresh()
+            self.sitToStand_hipAngle_horizontalSlider.setValue(hip_angle)
+            self.sitToStand_hip_label.setText(f"{hip_angle}")
+            self.sitToStand_bodyAngle_horizontalSlider.setValue(body_angle)
+            self.sitToStand_body_label.setText(f"{body_angle}, {Util.angle_to_gradient(body_angle)}")
 
-        hip_angle, body_angle = self._tracking_movements.get(Util.SIT_TO_STAND).get_thresh()
-        self.sitToStand_hipAngle_horizontalSlider.setValue(hip_angle)
-        self.sitToStand_hip_label.setText(f"{hip_angle}")
-        self.sitToStand_bodyAngle_horizontalSlider.setValue(body_angle)
-        self.sitToStand_body_label.setText(f"{body_angle}, {Util.angle_to_gradient(body_angle)}")
+        right_arm_reach = self._tracking_movements.get(Util.RIGHT_ARM_REACH)
+        if right_arm_reach is not None:
+            elbow_angle, shoulder_angle = right_arm_reach.get_thresh()
+            self.rightArmReach_elbowAngle_horizontalSlider.setValue(elbow_angle)
+            self.right_elbow_label.setText(f"{elbow_angle}")
+            self.rightArmReach_shoulderAngle_horizontalSlider.setValue(shoulder_angle)
+            self.right_shoulder_label.setText(f"{shoulder_angle}")
 
-        elbow_angle, shoulder_angle = self._tracking_movements.get(Util.RIGHT_ARM_REACH).get_thresh()
-        self.rightArmReach_elbowAngle_horizontalSlider.setValue(elbow_angle)
-        self.right_elbow_label.setText(f"{elbow_angle}")
-        self.rightArmReach_shoulderAngle_horizontalSlider.setValue(shoulder_angle)
-        self.right_shoulder_label.setText(f"{shoulder_angle}")
+        left_arm_reach = self._tracking_movements.get(Util.LEFT_ARM_REACH)
+        if left_arm_reach is not None:
+            elbow_angle, shoulder_angle = left_arm_reach.get_thresh()
+            self.leftArmReach_elbowAngle_horizontalSlider.setValue(elbow_angle)
+            self.left_elbow_label.setText(f"{elbow_angle}")
+            self.leftArmReach_shoulderAngle_horizontalSlider.setValue(shoulder_angle)
+            self.left_shoulder_label.setText(f"{shoulder_angle}")
 
-        elbow_angle, shoulder_angle = self._tracking_movements.get(Util.LEFT_ARM_REACH).get_thresh()
-        self.leftArmReach_elbowAngle_horizontalSlider.setValue(elbow_angle)
-        self.left_elbow_label.setText(f"{elbow_angle}")
-        self.leftArmReach_shoulderAngle_horizontalSlider.setValue(shoulder_angle)
-        self.left_shoulder_label.setText(f"{shoulder_angle}")
+        right_steps = self._tracking_movements.get(Util.RIGHT_STEPS)
+        if right_steps is not None:
+            knee_angle, foot_angle, sensitivity = right_steps.get_thresh()
+            self.stepsTracking_sideView_kneeAngle_horizontalSlider.setValue(knee_angle)
+            self.steps_side_knee_label.setText(f"{knee_angle}")
+            self.stepsTracking_sideView_footAngle_horizontalSlider.setValue(foot_angle)
+            self.steps_side_foot_label.setText(f"{foot_angle}, {Util.angle_to_gradient(foot_angle)}")
+            self.stepCounter_frontOrRear_sensitivity_horizontalSlider.setValue(sensitivity)
+            self.steps_front_rear_sensitivity_label.setText(f"{sensitivity}")
 
-        knee_angle, foot_angle, sensitivity = self._tracking_movements.get(Util.RIGHT_STEPS).get_thresh()
-        self.stepsTracking_sideView_kneeAngle_horizontalSlider.setValue(knee_angle)
-        self.steps_side_knee_label.setText(f"{knee_angle}")
-        self.stepsTracking_sideView_footAngle_horizontalSlider.setValue(foot_angle)
-        self.steps_side_foot_label.setText(f"{foot_angle}, {Util.angle_to_gradient(foot_angle)}")
-        self.stepCounter_frontOrRear_sensitivity_horizontalSlider.setValue(sensitivity)
-        self.steps_front_rear_sensitivity_label.setText(f"{sensitivity}")
-
-        hip_angle, body_angle = self._tracking_movements.get(Util.STANDING_TIME).get_thresh()
-        self.standingTimer_hipAngle_horizontalSlider.setValue(hip_angle)
-        self.standing_hip_label.setText(f"{hip_angle}")
-        self.standingTimer_bodyAngle_horizontalSlider.setValue(body_angle)
-        self.standing_body_label.setText(f"{body_angle}, {Util.angle_to_gradient(body_angle)}")
+        standing_time = self._tracking_movements.get(Util.STANDING_TIME)
+        if standing_time:
+            hip_angle, body_angle = standing_time.get_thresh()
+            self.standingTimer_hipAngle_horizontalSlider.setValue(hip_angle)
+            self.standing_hip_label.setText(f"{hip_angle}")
+            self.standingTimer_bodyAngle_horizontalSlider.setValue(body_angle)
+            self.standing_body_label.setText(f"{body_angle}, {Util.angle_to_gradient(body_angle)}")

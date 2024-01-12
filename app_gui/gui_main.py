@@ -234,7 +234,7 @@ class Ui_MainWindow(object):
         self.actionWebcam.setObjectName("actionWebcam")
         self.actionGenerate_CSV_File = QtWidgets.QAction(MainWindow)
         self.actionGenerate_CSV_File.setCheckable(True)
-        self.actionGenerate_CSV_File.setChecked(False)
+        self.actionGenerate_CSV_File.setChecked(True)
         self.actionGenerate_CSV_File.setEnabled(True)
         self.actionGenerate_CSV_File.setObjectName("actionGenerate_CSV_File")
         self.actionAdjust_Thresholds = QtWidgets.QAction(MainWindow)

@@ -29,6 +29,8 @@ class Util:
     DEFAULT_FILE_PATH = "./PhysiCam_RecordedSessions"
     DEFAULT_VIDEO_PATH = "./Physicam_VideoRecordings"
 
+    FILE_SAVE_INTERVAL = 5 * 60
+
     """ icon file path """
     ICON_FILE_PATH = "./app_util/images/icon.png"
 
