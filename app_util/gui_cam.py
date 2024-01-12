@@ -26,10 +26,18 @@ class Ui_MainWindow(object):
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 1408, 18))
         self.menubar.setObjectName("menubar")
+        self.menuFile = QtWidgets.QMenu(self.menubar)
+        self.menuFile.setObjectName("menuFile")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
         MainWindow.setStatusBar(self.statusbar)
+        self.actionFlip_Frame = QtWidgets.QAction(MainWindow)
+        self.actionFlip_Frame.setCheckable(True)
+        self.actionFlip_Frame.setChecked(True)
+        self.actionFlip_Frame.setObjectName("actionFlip_Frame")
+        self.menuFile.addAction(self.actionFlip_Frame)
+        self.menubar.addAction(self.menuFile.menuAction())
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -37,6 +45,8 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        self.menuFile.setTitle(_translate("MainWindow", "File"))
+        self.actionFlip_Frame.setText(_translate("MainWindow", "Flip Frame"))
 
 
 if __name__ == "__main__":

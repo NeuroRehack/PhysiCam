@@ -19,6 +19,7 @@ from app_util.playback import Playback
 from app_util.movement import (
     ArmExtensions, SitToStand, StepTracker, BoxAndBlocks, BoundaryDetector, StandingTimer,
 )
+from coral.coral import Coral
 
 
 __author__ = "Mike Smith"
@@ -44,6 +45,10 @@ class CamWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_cam.Ui_MainWindow)
         thread.image.connect(self.update_frame)
         self.ignore.emit(False)
 
+        self.actionFlip_Frame.triggered.connect(
+            lambda: thread.flip_frame(self.actionFlip_Frame.isChecked())
+        )
+
     def update_frame(self, img):
         self.img_label.setPixmap(QtGui.QPixmap(img))
 
@@ -67,6 +72,8 @@ class CameraThread(QtCore.QThread, Config):
     refresh_source = QtCore.pyqtSignal(int)
     tpu_error = QtCore.pyqtSignal(int)
     multiple_cams = QtCore.pyqtSignal(int)
+    reset_count = QtCore.pyqtSignal(int)
+    write_file = QtCore.pyqtSignal(int)
 
     """ back-end signals to handle counting reps """
     right_arm_ext = QtCore.pyqtSignal(int)
@@ -98,7 +105,6 @@ class CameraThread(QtCore.QThread, Config):
             self._cam_window = CamWindow(self, self._cam_id)
             self._cam_window.ignore.connect(self.ignore)
             self._cam_window.show()
-
 
     def __str__(self):
         """
@@ -277,6 +283,16 @@ class CameraThread(QtCore.QThread, Config):
                         corr_mode=self._corr_mode,
                     )
 
+                    if self._session_time > self._file_save_count * 10: #* 5 * 60:
+                        if not (
+                            self._write_file.write(self._name_id, self._filetime, self._cam_id, self._file_save_count)
+                        ):
+                            self._file_save_count = 1
+
+                        self._write_file = CsvFile(save=self._save_file)
+                        self.write_file.emit(self._file_save_count)
+                        self._file_save_count += 1
+
             """ display a blank frame if 'hide video' is enabled """
             self.emit_qt_img(
                 self._blank_frame if (
@@ -329,7 +345,8 @@ class CameraThread(QtCore.QThread, Config):
 
         """
         if tpu:
-            try: pass #self._coral = Coral()
+            try: 
+                self._coral = Coral()
             except ValueError as err:
                 tpu_error_msg_box = QtWidgets.QMessageBox()
                 tpu_error_msg_box.setWindowTitle("Coral TPU Error")
@@ -417,6 +434,12 @@ class CameraThread(QtCore.QThread, Config):
             img.data, width, height, QtGui.QImage.Format_RGB888
         ).scaled(int(img_width), int(img_height), QtCore.Qt.KeepAspectRatio)
         self.image.emit(QtImg)
+
+    def get_session_time(self):
+        if self._session_time is not None:
+            return self._session_time
+        else:
+            return 0
 
     def start_video_capture(self, source=None):
         """
@@ -576,7 +599,9 @@ class CameraThread(QtCore.QThread, Config):
             button_handler = handle_exit_msg_box.clickedButton()
             button_clicked = handle_exit_msg_box.standardButton(button_handler)
             if button_clicked == QtWidgets.QMessageBox.Yes and not self._ignore:
-                self._write_file.write(self._name_id, self._filetime, self._cam_id)
+                self._write_file.write(self._name_id, self._filetime, self._cam_id, self._file_save_count)
+                self.write_file.emit(self._file_save_count)
+                self._file_save_count = 1
 
     def get_frame_rate(self, frame_times):
         """
@@ -610,6 +635,7 @@ class CameraThread(QtCore.QThread, Config):
                 self._video_recording = VideoFile(save=self._save_video)
                 if not self._ignore:
                     self._video_recording.start_video(self._filetime, self._img.shape, self._cam_id)
+                    self._file_save_count = 1
 
             if self._stop_time is not None and (
                 self._source == Util.VIDEO or self._is_paused
@@ -619,15 +645,19 @@ class CameraThread(QtCore.QThread, Config):
                 self._start_time = time.time()
 
             """ resets all movement count if accessed from webcam """
+            #print("reset before")
             if self._source == Util.WEBCAM:
                 self.reset_all_count()
+                #print("reset after")
 
         else:
             self._stop_time = time.time()
 
             """ write to csv file """
             if not self._ignore:
-                self._write_file.write(self._name_id, self._filetime, self._cam_id)
+                self._write_file.write(self._name_id, self._filetime, self._cam_id, self._file_save_count)
+                self.write_file.emit(self._file_save_count)
+                self._file_save_count = 1
 
             if self._save_video and not self._ignore:
                 self._video_recording.end_video()
@@ -675,6 +705,8 @@ class CameraThread(QtCore.QThread, Config):
         self.right_hand_count.emit(0)
         self.left_hand_count.emit(0)
 
+        self.reset_count.emit(self._cam_id)
+
     def decrement_count(self, movement):
         """
         method for decrementing counts for a specific 'movement'
@@ -683,15 +715,15 @@ class CameraThread(QtCore.QThread, Config):
 
         """
         if movement == Util.RIGHT_ARM_REACH:
-            self._right_arm_ext.decrement_count()
+            self._right_arm_ext.decrement_count(self._cam_id)
         elif movement == Util.LEFT_ARM_REACH:
-            self._left_arm_ext.decrement_count()
+            self._left_arm_ext.decrement_count(self._cam_id)
         elif movement == Util.SIT_TO_STAND:
-            self._sit_to_stand.decrement_count()
+            self._sit_to_stand.decrement_count(self._cam_id)
         elif movement == Util.RIGHT_STEPS:
-            self._right_step_tracker.decrement_count()
+            self._right_step_tracker.decrement_count(self._cam_id)
         elif movement == Util.LEFT_STEPS:
-            self._left_step_tracker.decrement_count()
+            self._left_step_tracker.decrement_count(self._cam_id)
 
     def add_movements(self):
         """
@@ -699,7 +731,9 @@ class CameraThread(QtCore.QThread, Config):
 
         """
         is_steps_enabled = self.steps_tracking_mode in self._modes
+
         self._standing_timer = StandingTimer(is_steps_enabled, debug=False)
+        self._tracking_movements.update({Util.STANDING_TIME: self._standing_timer})
 
         self._left_step_tracker = StepTracker(is_steps_enabled, Util.LEFT, debug=False)
         self._tracking_movements.update({Util.LEFT_STEPS: self._left_step_tracker})
@@ -835,6 +869,21 @@ class CameraThread(QtCore.QThread, Config):
         thresh_win.right_arm_reach_shoulder_angle.connect(
             lambda value: right_arm_reach_shoulder_angle(value)
         )
+        thresh_win.steps_tracking_side_view_knee_angle.connect(
+            lambda value: steps_tracking_side_view_knee_angle(value)
+        )
+        thresh_win.steps_tracking_side_view_foot_angle.connect(
+            lambda value: steps_tracking_side_view_foot_angle(value)
+        )
+        thresh_win.steps_tracking_front_rear_sensitivity.connect(
+            lambda value: steps_tracking_front_rear_sensitivity(value)
+        )
+        thresh_win.standing_timer_hip_angle.connect(
+            lambda value: standing_timer_hip_angle(value)
+        )
+        thresh_win.standing_timer_body_angle.connect(
+            lambda value: standing_timer_body_angle(value)
+        )
 
         def sit_to_stand_hip_angle(value):
             self._sit_to_stand.sit_to_stand_hip_angle = value
@@ -860,13 +909,41 @@ class CameraThread(QtCore.QThread, Config):
             self._right_arm_ext.right_arm_reach_shoulder_angle = value
             thresh_win.right_shoulder_label.setText(f"{value}")
 
+        def steps_tracking_side_view_knee_angle(value):
+            self._right_step_tracker.step_tracking_knee_angle = value
+            self._left_step_tracker.step_tracking_knee_angle = value
+            thresh_win.steps_side_knee_label.setText(f"{value}")
+
+        def steps_tracking_side_view_foot_angle(value):
+            self._right_step_tracker.step_tracking_foot_grad = Util.angle_to_gradient(value)
+            self._left_step_tracker.step_tracking_foot_grad = Util.angle_to_gradient(value)
+            thresh_win.steps_side_foot_label.setText(f"{value}, {Util.angle_to_gradient(value)}")
+
+        def steps_tracking_front_rear_sensitivity(value):
+            self._right_step_tracker.frame_len = value
+            self._left_step_tracker.frame_len = value
+            thresh_win.steps_front_rear_sensitivity_label.setText(f"{value}")
+
+        def standing_timer_hip_angle(value):
+            self._standing_timer.standing_timer_hip_angle = value
+            thresh_win.standing_hip_label.setText(f"{value}")
+
+        def standing_timer_body_angle(value):
+            self._standing_timer.standing_timer_body_gradient = Util.angle_to_gradient(value)
+            thresh_win.standing_body_label.setText(f"{value}, {Util.angle_to_gradient(value)}")
+
     """ get functions used in the the main window thread """
+    def get_name_id(self): return self._name_id
+    def get_filetime(self): return self._filetime
     def get_tracking_movements(self): return self._tracking_movements.copy()
     def get_current_mode(self): return self._modes.copy()
     def get_recording_status(self): return self._is_recording
     def get_input_source(self): return self._source
     def get_corr_mode(self): return self._corr_mode
     def get_pause_status(self): return self._is_paused
+    def get_save_status(self, file): 
+        if file == Util.CSV: return self._save_file
+        elif file == Util.MP4 or Util.AVI: return self._save_video
 
     """ set/toggle function set by user inputs from the main window thread """
     def update_name_id(self, name_id): self._name_id = name_id

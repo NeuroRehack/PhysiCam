@@ -47,6 +47,8 @@ class Generic:
         self._is_tracking = is_tracking
         self._ignore_vis = ignore_vis
         self._debug = debug
+        
+        self._last_count_time = 0
 
     def set_tracking_status(self, is_tracking):
         """
@@ -277,8 +279,16 @@ class Generic:
         """
         return self._count
     
-    def decrement_count(self):
+    def get_last_count_time(self):
+        return self._last_count_time
+    
+    def increment_count(self):
+        self._count += 1
+        self._last_count_time = time.time()
+    
+    def decrement_count(self, id):
         self._count -= 1
+        print(id)
     
 
 class ArmExtensions(Generic):
@@ -358,7 +368,7 @@ class ArmExtensions(Generic):
                     self._frame = self._frame[-self._frame_len:]
 
                     if all(self._frame) and self._reset:
-                        self._count += 1
+                        self.increment_count()
                         self._reset = False
 
                     if not any(self._frame):
@@ -455,7 +465,7 @@ class SitToStand(Generic):
                         and right_body_grad > self.sit_to_stand_body_gradient
                         and left_body_grad > self.sit_to_stand_body_gradient
                     ):
-                        self._count += 1
+                        self.increment_count()
                         self._reset = False
 
                     if not any(self._frame):
@@ -476,6 +486,8 @@ class StepTracker(Generic):
 
     """
     step_tracking_knee_angle = 155
+    step_tracking_foot_grad = 0.5
+    frame_len = 7
 
     def __init__(self, is_tracking, left_or_right, ignore_vis=False, debug=False):
         """
@@ -484,8 +496,6 @@ class StepTracker(Generic):
         """
         super().__init__(is_tracking, ignore_vis, debug)
         self._left_or_right = left_or_right
-
-        self._frame_len = 7
         self.reset_count()
 
         self._left_thigh_grad_points = (Motion.left_knee, Motion.left_hip)
@@ -537,7 +547,7 @@ class StepTracker(Generic):
                 img = self.debug(img, source, landmarks, view, knee_angle, foot_grad)
 
             """ count steps """
-            if knee_angle > self.step_tracking_knee_angle and 0 < foot_grad < 0.5 and thigh_grad > 1:
+            if knee_angle > self.step_tracking_knee_angle and 0 < foot_grad < self.step_tracking_foot_grad and thigh_grad > 1:
                 if self._left_or_right == Util.LEFT and self._debug:
                     start = (landmarks[Motion.left_heel][1], landmarks[Motion.left_heel][2])
                     end = (landmarks[Motion.left_toes][1], landmarks[Motion.left_toes][2])
@@ -550,7 +560,7 @@ class StepTracker(Generic):
 
                 self._frame.append(True)
 
-            elif 0 < knee_angle < 155 and foot_grad > 0 and thigh_grad > 1:
+            elif 0 < knee_angle < self.step_tracking_knee_angle and foot_grad > 0 and thigh_grad > 1:
 
                 self._frame.append(False)
 
@@ -591,17 +601,24 @@ class StepTracker(Generic):
             else:
                 self._frame.append(False)
 
-        if len(self._frame) > self._frame_len:
-            self._frame = self._frame[-self._frame_len:]
+        if len(self._frame) > self.frame_len:
+            self._frame = self._frame[-self.frame_len:]
 
             if not any(self._frame) and self._reset:
-                self._count += 1
+                self.increment_count()
                 self._reset = False
 
             if all(self._frame):
                 self._reset = True
 
         return img, self._count
+    
+    def get_thresh(self):
+        return (
+            self.step_tracking_knee_angle, 
+            Util.gradient_to_angle(self.step_tracking_foot_grad), 
+            self.frame_len,
+        )
     
     def debug(self, img, source, landmarks, view, *args):
 
@@ -652,6 +669,7 @@ class StandingTimer(Generic):
 
     """
     standing_timer_hip_angle = 150
+    standing_timer_body_gradient = 5
 
     def __init__(self, is_tracking, ignore_vis=False, debug=False):
 
@@ -688,7 +706,10 @@ class StandingTimer(Generic):
             p = Util.get_points(landmarks, self._right_hip_angle_points)
             right_hip_angle = self.find_angle(img.shape, p, ignore_vis=True)
 
-            if left_hip_angle > self.standing_timer_hip_angle or right_hip_angle > self.standing_timer_hip_angle:
+            if (
+                (left_hip_angle > self.standing_timer_hip_angle or right_hip_angle > self.standing_timer_hip_angle)
+                and True ### replace with body gradient check
+            ):
                 is_standing = True
 
         diff_time = time.time() - self._prev_time if self._prev_time is not None else 0
@@ -699,6 +720,12 @@ class StandingTimer(Generic):
 
         return int(time.time() - self._start_time - self._non_standing_time)
 
+    def get_thresh(self):
+        return (
+            self.standing_timer_hip_angle, 
+            Util.gradient_to_angle(self.standing_timer_body_gradient)
+        )
+    
 
 class BoxAndBlocks(Generic):
     """
@@ -757,7 +784,7 @@ class BoxAndBlocks(Generic):
             """ count based on pinky position relative to the detected boundary """
             if self._prev == False and self._curr == True:
                 if all(cond) and y < boundary[Util.Y]:
-                    self._count += 1
+                    self.increment_count()
 
             """ use previous handedness information if unsure of current """
             if handedness is not None:

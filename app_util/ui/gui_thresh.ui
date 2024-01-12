@@ -36,7 +36,7 @@
         </rect>
        </property>
        <layout class="QGridLayout" name="gridLayout_2">
-        <item row="0" column="0">
+        <item row="0" column="0" colspan="2">
          <widget class="QFrame" name="frame">
           <property name="minimumSize">
            <size>
@@ -456,7 +456,7 @@
                   </widget>
                  </item>
                  <item row="0" column="2">
-                  <widget class="QLabel" name="label_15">
+                  <widget class="QLabel" name="standing_hip_label">
                    <property name="font">
                     <font>
                      <pointsize>8</pointsize>
@@ -468,7 +468,7 @@
                   </widget>
                  </item>
                  <item row="1" column="2">
-                  <widget class="QLabel" name="label_16">
+                  <widget class="QLabel" name="standing_body_label">
                    <property name="font">
                     <font>
                      <pointsize>8</pointsize>
@@ -545,7 +545,7 @@
                     <number>0</number>
                    </property>
                    <property name="maximum">
-                    <number>90</number>
+                    <number>85</number>
                    </property>
                    <property name="singleStep">
                     <number>1</number>
@@ -562,7 +562,7 @@
                   </widget>
                  </item>
                  <item row="0" column="2">
-                  <widget class="QLabel" name="label_17">
+                  <widget class="QLabel" name="steps_side_knee_label">
                    <property name="font">
                     <font>
                      <pointsize>8</pointsize>
@@ -574,7 +574,7 @@
                   </widget>
                  </item>
                  <item row="1" column="2">
-                  <widget class="QLabel" name="label_18">
+                  <widget class="QLabel" name="steps_side_foot_label">
                    <property name="font">
                     <font>
                      <pointsize>8</pointsize>
@@ -591,7 +591,7 @@
               <item>
                <widget class="QGroupBox" name="groupBox_9">
                 <property name="enabled">
-                 <bool>false</bool>
+                 <bool>true</bool>
                 </property>
                 <property name="font">
                  <font>
@@ -603,7 +603,7 @@
                 </property>
                 <layout class="QGridLayout" name="gridLayout_8">
                  <item row="0" column="1">
-                  <widget class="QSlider" name="sitToStand_hipAngle_horizontalSlider_7">
+                  <widget class="QSlider" name="stepCounter_frontOrRear_sensitivity_horizontalSlider">
                    <property name="minimum">
                     <number>1</number>
                    </property>
@@ -637,7 +637,7 @@
                   </widget>
                  </item>
                  <item row="0" column="2">
-                  <widget class="QLabel" name="label_19">
+                  <widget class="QLabel" name="steps_front_rear_sensitivity_label">
                    <property name="font">
                     <font>
                      <pointsize>8</pointsize>
@@ -654,141 +654,207 @@
              </layout>
             </widget>
            </item>
-           <item>
-            <widget class="QGroupBox" name="groupBox_3">
+          </layout>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QGroupBox" name="groupBox_12">
+          <property name="minimumSize">
+           <size>
+            <width>360</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="title">
+           <string>Multiple Cameras</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_11">
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_23">
              <property name="font">
               <font>
-               <pointsize>10</pointsize>
+               <pointsize>8</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Delay</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QSlider" name="multipleCams_delay_horizontalSlider">
+             <property name="minimum">
+              <number>0</number>
+             </property>
+             <property name="maximum">
+              <number>2000</number>
+             </property>
+             <property name="singleStep">
+              <number>100</number>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="tickPosition">
+              <enum>QSlider::TicksBelow</enum>
+             </property>
+             <property name="tickInterval">
+              <number>0</number>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QLabel" name="multicam_delay_label">
+             <property name="font">
+              <font>
+               <pointsize>8</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>-</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QGroupBox" name="groupBox_3">
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="title">
+           <string>Hand Tracking</string>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_3">
+           <item>
+            <widget class="QGroupBox" name="groupBox_10">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>9</pointsize>
               </font>
              </property>
              <property name="title">
-              <string>Hand Tracking</string>
+              <string>Left Hand</string>
              </property>
-             <layout class="QHBoxLayout" name="horizontalLayout_3">
-              <item>
-               <widget class="QGroupBox" name="groupBox_10">
-                <property name="enabled">
-                 <bool>false</bool>
-                </property>
+             <layout class="QGridLayout" name="gridLayout_9">
+              <item row="0" column="0">
+               <widget class="QLabel" name="label_14">
                 <property name="font">
                  <font>
-                  <pointsize>9</pointsize>
+                  <pointsize>8</pointsize>
                  </font>
                 </property>
-                <property name="title">
-                 <string>Left Hand</string>
+                <property name="text">
+                 <string>Sensitivity</string>
                 </property>
-                <layout class="QGridLayout" name="gridLayout_9">
-                 <item row="0" column="0">
-                  <widget class="QLabel" name="label_14">
-                   <property name="font">
-                    <font>
-                     <pointsize>8</pointsize>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Sensitivity</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="0" column="1">
-                  <widget class="QSlider" name="sitToStand_hipAngle_horizontalSlider_8">
-                   <property name="minimum">
-                    <number>1</number>
-                   </property>
-                   <property name="maximum">
-                    <number>10</number>
-                   </property>
-                   <property name="singleStep">
-                    <number>1</number>
-                   </property>
-                   <property name="orientation">
-                    <enum>Qt::Horizontal</enum>
-                   </property>
-                   <property name="tickPosition">
-                    <enum>QSlider::TicksBelow</enum>
-                   </property>
-                   <property name="tickInterval">
-                    <number>0</number>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="0" column="2">
-                  <widget class="QLabel" name="label_20">
-                   <property name="font">
-                    <font>
-                     <pointsize>8</pointsize>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>-</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
                </widget>
               </item>
-              <item>
-               <widget class="QGroupBox" name="groupBox_11">
-                <property name="enabled">
-                 <bool>false</bool>
+              <item row="0" column="1">
+               <widget class="QSlider" name="handTracking_leftHand_horizontalSlider">
+                <property name="minimum">
+                 <number>1</number>
                 </property>
+                <property name="maximum">
+                 <number>10</number>
+                </property>
+                <property name="singleStep">
+                 <number>1</number>
+                </property>
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="tickPosition">
+                 <enum>QSlider::TicksBelow</enum>
+                </property>
+                <property name="tickInterval">
+                 <number>0</number>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="QLabel" name="label_20">
                 <property name="font">
                  <font>
-                  <pointsize>9</pointsize>
+                  <pointsize>8</pointsize>
                  </font>
                 </property>
-                <property name="title">
-                 <string>Right Hand</string>
+                <property name="text">
+                 <string>-</string>
                 </property>
-                <layout class="QGridLayout" name="gridLayout_10">
-                 <item row="0" column="0">
-                  <widget class="QLabel" name="label_22">
-                   <property name="font">
-                    <font>
-                     <pointsize>8</pointsize>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Sensitivity</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="0" column="1">
-                  <widget class="QSlider" name="sitToStand_hipAngle_horizontalSlider_9">
-                   <property name="minimum">
-                    <number>1</number>
-                   </property>
-                   <property name="maximum">
-                    <number>10</number>
-                   </property>
-                   <property name="singleStep">
-                    <number>1</number>
-                   </property>
-                   <property name="orientation">
-                    <enum>Qt::Horizontal</enum>
-                   </property>
-                   <property name="tickPosition">
-                    <enum>QSlider::TicksBelow</enum>
-                   </property>
-                   <property name="tickInterval">
-                    <number>0</number>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="0" column="2">
-                  <widget class="QLabel" name="label_21">
-                   <property name="font">
-                    <font>
-                     <pointsize>8</pointsize>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>-</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QGroupBox" name="groupBox_11">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>9</pointsize>
+              </font>
+             </property>
+             <property name="title">
+              <string>Right Hand</string>
+             </property>
+             <layout class="QGridLayout" name="gridLayout_10">
+              <item row="0" column="0">
+               <widget class="QLabel" name="label_22">
+                <property name="font">
+                 <font>
+                  <pointsize>8</pointsize>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>Sensitivity</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QSlider" name="handTracking_rightHand_horizontalSlider">
+                <property name="minimum">
+                 <number>1</number>
+                </property>
+                <property name="maximum">
+                 <number>10</number>
+                </property>
+                <property name="singleStep">
+                 <number>1</number>
+                </property>
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="tickPosition">
+                 <enum>QSlider::TicksBelow</enum>
+                </property>
+                <property name="tickInterval">
+                 <number>0</number>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="QLabel" name="label_21">
+                <property name="font">
+                 <font>
+                  <pointsize>8</pointsize>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>-</string>
+                </property>
                </widget>
               </item>
              </layout>

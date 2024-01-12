@@ -164,6 +164,8 @@ class CsvFile(File):
         self._data = []
         self._prev_time = 0
 
+        self._max_file_count = 0
+
     def read(self):
         """
         not implemented yet
@@ -171,20 +173,28 @@ class CsvFile(File):
         """
         pass
 
-    def write(self, name, filetime, cam_id):
+    def write(self, name, filetime, cam_id, count):
         """
         takes the parsed data and writes it to a csv file
 
         """
         if not self._save_file or len(self._data) == 0:
-            return
+            print("Empty File")
+            return False
+        
+        self._max_file_count = max(self._max_file_count, count)
 
         """ create a directory to store the saved files """
         if not os.path.exists(self.file_path):
             os.mkdir(self.file_path)
 
+        """ create a sub-dir to store the video file and timestamps file """
+        fpath = f"{self.file_path}/{name}{filetime}"
+        if not os.path.exists(fpath):
+            os.mkdir(fpath)
+
         """ make sure there are no existing files with duplicate names """
-        dir = os.scandir(self.file_path)
+        dir = os.scandir(fpath)
         files = [a.name for a in dir]
 
         """ invalid characters """
@@ -195,16 +205,23 @@ class CsvFile(File):
         name = f"{name}-" if name != "" else ""
         name = name.replace(' ', '_')
 
-        fname = f"{self.file_path}/{name}{filetime}-{cam_id}.csv"
-        print(f"saved file: {fname}") if fname not in files else print("file exists")
+        fname = f"{name}{filetime}-{count}-cam{cam_id}.csv"
+        if cam_id == "summary":
+            fname = f"{name}{filetime}-{count}-{cam_id}.csv"
+        if fname in files:
+            fname = f"{name}{filetime}-{self._max_file_count}-cam{cam_id}.csv"
+            print("updated name")
+        print(f"saved file: {fpath}/{fname}")
 
         """ create a csv file and write to it """
-        with open(fname, "w", newline="") as new_file:
+        with open(f"{fpath}/{fname}", "w", newline="") as new_file:
             dict_writer = csv.DictWriter(new_file, fieldnames=self._keys)
             dict_writer.writeheader()
 
             for d in self._data:
                 dict_writer.writerow(d)
+
+        return True
 
     def parse_movements(
             self, movements, landmarks, curr_time, shape, curr_movement, flipped, aruco,
@@ -268,3 +285,34 @@ class CsvFile(File):
 
             self._data.append(data)
             self._prev_time = time.time()
+
+    def count(self, movement_counts, curr_time, movements):
+        self._keys = list()
+
+        self._keys = [
+            key for key in movements.keys() # if movements[key].get_tracking_status()
+        ]
+        self._keys.insert(0, "system time")
+        self._keys.insert(1, "time")
+
+        data = {
+            "system time": f'{datetime.now().strftime("%y/%m/%d_%H:%M:%S.%f")[:-3]}',
+            "time": "%d:%02d:%02d.%05d"
+            % (
+                curr_time // 3600,
+                curr_time // 60,
+                curr_time % 60,
+                (curr_time % 1) * 1e5,
+            ),
+            #"resolution": shape,
+            #"current movement": curr_movement,
+            #"frame flipped": 1 if flipped else 0,
+            #"aruco position": aruco,
+        }
+        for key, value in movements.items():
+            data[key] = None
+
+            if movements[key].get_tracking_status():
+                data[key] = movement_counts[key]
+
+        self._data.append(data)

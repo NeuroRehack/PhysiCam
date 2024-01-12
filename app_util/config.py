@@ -45,9 +45,10 @@ class Config():
 
         self._read_file = None
         self._write_file = None
-        self._save_file = False      ### enable / disable "save to csv"
+        self._save_file = True      ### enable / disable "save to csv"
         self._save_video = False    ### enable / disable saving video recordings
         self._video_recording = None
+        self._file_save_count = 1
 
         self._filetime = Util.create_filename()
         self._file_name = None

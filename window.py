@@ -7,12 +7,12 @@ see "doc/window.md" for more details
 
 import time
 import cv2 as cv
-from PyQt5 import QtWidgets, QtGui
+from PyQt5 import QtWidgets, QtGui, QtCore
 from statistics import mean
-from app_util import gui_main
+from app_util import gui_main, gui_thresh
+from app_util.file import CsvFile
 from app_util.util import Util
 from thread import CameraThread
-from thresh import ThreshWindow
 
 
 __author__ = "Mike Smith"
@@ -72,26 +72,27 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             lambda text: self.primary_source_changed(int(text))
         )
 
+        self._main_thread.write_file.connect(self.write_file)
+
+        self._thread_counts = dict()
+        self._prev_move_time = 0
+
         self.actionOpen.triggered.connect(self.open_file)
         self.actionAdjust_Thresholds.triggered.connect(self.adjust_thresholds)
 
-        """ worker thread counts """
-        self._thread_counts = dict()
-        self._prev_move_time = 0
-        self._prev_counts = {
-            Util.RIGHT_ARM_REACH: 0,
-            Util.LEFT_ARM_REACH: 0,
-            Util.SIT_TO_STAND: 0,
-            Util.RIGHT_STEPS: 0,
-            Util.LEFT_STEPS: 0,
-        }
-        self._prev_count_times = self._prev_counts.copy()
+        self._summary_file = None
 
         self._frame_rates = list()
         self.start_pushButton.clicked.connect(self.update_start_pushButton)
 
         self.connect_signals(self._main_thread)
-        self.actionCoral_TPU.setEnabled(False)
+        #self.actionCoral_TPU.setEnabled(False)
+
+        self._multicam_delay_thresh = Util.MULTI_CAM_DELAY_THRESH
+
+        self.actionFlip_Frame.triggered.connect(
+            lambda: self._main_thread.flip_frame(self.actionFlip_Frame.isChecked())
+        )
 
         """ connect motion traking signals """
         self._main_thread.right_arm_ext.connect(
@@ -103,14 +104,14 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._main_thread.sit_to_stand.connect(
             lambda count: self.update_count(self._main_thread, Util.SIT_TO_STAND, count)
         )
-        self._main_thread.standing_timer.connect(
-            lambda timer: self.standing_time_label.setText(f"Standing Time: {self.format_time(timer)}")
-        )
         self._main_thread.right_steps.connect(
-            lambda count: self.right_steps_count_label.setText(f"{Util.RIGHT_STEPS}: {count}")
+            lambda count: self.update_count(self._main_thread, Util.RIGHT_STEPS, count),
         )
         self._main_thread.left_steps.connect(
-            lambda count: self.left_steps_count_label.setText(f"{Util.LEFT_STEPS}: {count}")
+            lambda count: self.update_count(self._main_thread, Util.LEFT_STEPS, count),
+        )
+        self._main_thread.standing_timer.connect(
+            lambda timer: self.standing_time_label.setText(f"Standing Time: {self.format_time(timer)}")
         )
         self._main_thread.right_hand_count.connect(
             lambda count: self.right_hand_count_label.setText(f"{Util.RIGHT_HAND}: {count}")
@@ -157,7 +158,12 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self.actionCoral_TPU.triggered.connect(
             lambda: thread.set_motion_tracking(self.actionCoral_TPU.isChecked())
         )
-        self.actionFlip_Frame.triggered.connect(self.flip_frame)
+        #self.actionFlip_Frame.triggered.connect(thread.flip_frame)
+
+        self._main_thread.reset_count.connect(
+            lambda: self.reset_thread_counts(thread)
+        )
+        self.reset_thread_counts(thread)        
 
         """ connect check-box signals """
         self.motion_tracking_checkBox.stateChanged.connect(
@@ -176,7 +182,13 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             )
         )
 
-        """ init movement counts for all threads """
+        """ enable default tracking mode(s) """
+        if thread.get_corr_mode():
+            self.hand_tracking_checkBox.setChecked(True)
+        else:
+            self.motion_tracking_checkBox.setChecked(True)
+
+    def reset_thread_counts(self, thread):
         self._thread_counts.update(
             {
                 thread: {
@@ -189,24 +201,15 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
                 }
             }
         )
-
-        """ enable default tracking mode(s) """
-        if thread.get_corr_mode():
-            self.hand_tracking_checkBox.setChecked(True)
-        else:
-            self.motion_tracking_checkBox.setChecked(True)
-
-    def flip_frame(self):
-        """
-        manually flip frame if using external cameras
-
-        """
-        self._main_thread.flip_frame(self.actionFlip_Frame.isChecked())
-
-        time.sleep(1)
-        for i in range(1, self._num_channels):
-            self._worker_threads[i-1].flip_frame(self.actionFlip_Frame.isChecked())
-
+        self._movement_counts = {
+            Util.RIGHT_ARM_REACH: 0,
+            Util.LEFT_ARM_REACH: 0,
+            Util.SIT_TO_STAND: 0,
+            Util.RIGHT_STEPS: 0,
+            Util.LEFT_STEPS: 0,
+        }
+        self._prev_count_times = self._movement_counts.copy()
+            
     def update_frame(self, img):
         """
         updated gui interface whenever a new video frame is received from the
@@ -223,12 +226,25 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         if self._main_thread.get_recording_status():
             self.start_pushButton.setText("Stop")
 
+            if self._summary_file == None:
+                self._summary_file = CsvFile(save=self._main_thread.get_save_status(Util.CSV))
+            else:
+                self._summary_file.count(
+                    self._movement_counts, self._main_thread.get_session_time(), self._main_thread.get_tracking_movements()
+                )
+
             if self._main_thread.get_input_source() == Util.WEBCAM:
                 self.pause_pushButton.setVisible(True)
 
         else:
             self.start_pushButton.setText("Start")
             self.pause_pushButton.setVisible(False)
+
+            if self._summary_file is not None:
+                self._summary_file.write(
+                    self._main_thread.get_name_id(), self._main_thread.get_filetime(), "summary", ""
+                )
+                self._summary_file = None
 
         if self._main_thread.get_pause_status():
             self.pause_pushButton.setText("Resume")
@@ -252,6 +268,15 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             self.hand_tracking_groupBox.setDisabled(True)
         else:
             self.hand_tracking_groupBox.setDisabled(False)
+
+    def write_file(self, count):
+        if self._summary_file is None:
+            return
+        
+        self._summary_file.write(
+            self._main_thread.get_name_id(), self._main_thread.get_filetime(), "summary", count,
+        )
+        self._summary_file = CsvFile(self._main_thread.get_save_status(Util.CSV))
 
     def format_time(self, time):
         """
@@ -317,6 +342,8 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
 
             self.connect_signals(self._worker_threads[i-1])
 
+            self.reset_thread_counts(self._worker_threads[i-1])
+
             self._worker_threads[i-1].right_arm_ext.connect(
                 lambda count: self.update_count(self._worker_threads[i-1], Util.RIGHT_ARM_REACH, count)
             )
@@ -326,7 +353,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             self._worker_threads[i-1].sit_to_stand.connect(
                 lambda count: self.update_count(self._worker_threads[i-1], Util.SIT_TO_STAND, count)
             )
-
             self._worker_threads[i-1].right_steps.connect(
                 lambda count: self.update_count(self._worker_threads[i-1], Util.RIGHT_STEPS, count)
             )
@@ -340,18 +366,14 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         ignores any double-ups in movement detections when using multiple cameras
         
         """
-        self._thread_counts[thread].update({movement: count})
-        new_count = sum(c[movement] for c in list(self._thread_counts.values()))
+        if self._thread_counts[thread][movement] < count:
+            self._thread_counts[thread][movement] = count
 
-        if new_count > self._prev_counts[movement]:
-
-            if time.time() > self._prev_count_times[movement] + Util.MULTI_CAM_DELAY_THRESH:
+            if time.time() > self._prev_count_times[movement] + self._multicam_delay_thresh:
+                self._movement_counts[movement] += 1
                 self._prev_count_times[movement] = time.time()
-                self._prev_counts[movement] = new_count
-                self.display_count(movement, new_count)
-            else:
-                thread.decrement_count(movement)
-                self._prev_counts[movement] = new_count - 1
+                
+        self.display_count(movement, self._movement_counts[movement])
 
     def display_count(self, movement, count):
         """
@@ -430,12 +452,19 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         except: 
             self._thresh_prev_launch_time = time.time()
 
-        self._thresh_window = ThreshWindow(self._main_thread.get_tracking_movements())
+        self._thresh_window = ThreshWindow(
+            self._main_thread.get_tracking_movements(), self._multicam_delay_thresh
+        )
         self._thresh_window.show()
+        self._thresh_window.multicam_delay.connect(self.update_multicam_delay_thresh)
 
         self._main_thread.adjust_thresh(self._thresh_window)
         for th in self._worker_threads:
             th.adjust_thresh(self._thresh_window)
+
+    def update_multicam_delay_thresh(self, value):
+        self._multicam_delay_thresh = value / 1000
+        self._thresh_window.multicam_delay_label.setText(f"{value / 1000}")
 
     def update_tracking_mode(self, check_box, mode):
         """ 
@@ -467,3 +496,110 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         
         """
         self._main_thread.handle_exit(event)
+
+
+class ThreshWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_thresh.Ui_MainWindow):
+    """
+    Threshold Window: for the user to adjust various thresholds related to counting reps
+    (in development)
+
+    """
+    multicam_delay = QtCore.pyqtSignal(int)
+
+    sit_to_stand_hip_angle = QtCore.pyqtSignal(int)
+    sit_to_stand_body_angle = QtCore.pyqtSignal(int)
+
+    left_arm_reach_elbow_angle = QtCore.pyqtSignal(int)
+    left_arm_reach_shoulder_angle = QtCore.pyqtSignal(int)
+
+    right_arm_reach_elbow_angle = QtCore.pyqtSignal(int)
+    right_arm_reach_shoulder_angle = QtCore.pyqtSignal(int)
+
+    steps_tracking_side_view_knee_angle = QtCore.pyqtSignal(int)
+    steps_tracking_side_view_foot_angle = QtCore.pyqtSignal(int)
+    steps_tracking_front_rear_sensitivity = QtCore.pyqtSignal(int)
+
+    standing_timer_hip_angle = QtCore.pyqtSignal(int)
+    standing_timer_body_angle = QtCore.pyqtSignal(int)
+
+    def __init__(self, tracking_movements, multicam_delay, parent=None):
+        super().__init__(parent)
+
+        """ set up gui """
+        self.setupUi(self)
+        self.setWindowTitle("PhysiCam - Adjust Thresholds")
+        self.setWindowIcon(Util.get_icon())
+
+        self._tracking_movements = tracking_movements
+
+        self.multipleCams_delay_horizontalSlider.valueChanged.connect(
+            lambda value: self.multicam_delay.emit(int(value))
+        )
+        self.sitToStand_hipAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.sit_to_stand_hip_angle.emit(int(value))
+        )
+        self.sitToStand_bodyAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.sit_to_stand_body_angle.emit(int(value))
+        )
+        self.leftArmReach_elbowAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.left_arm_reach_elbow_angle.emit(int(value))
+        )
+        self.leftArmReach_shoulderAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.left_arm_reach_shoulder_angle.emit(int(value))
+        )
+        self.rightArmReach_elbowAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.right_arm_reach_elbow_angle.emit(int(value))
+        )
+        self.rightArmReach_shoulderAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.right_arm_reach_shoulder_angle.emit(int(value))
+        )
+        self.stepsTracking_sideView_kneeAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.steps_tracking_side_view_knee_angle.emit(int(value))
+        )
+        self.stepsTracking_sideView_footAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.steps_tracking_side_view_foot_angle.emit(int(value))
+        )
+        self.stepCounter_frontOrRear_sensitivity_horizontalSlider.valueChanged.connect(
+            lambda value: self.steps_tracking_front_rear_sensitivity.emit(int(value))
+        )
+        self.standingTimer_hipAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.standing_timer_hip_angle.emit(int(value))
+        )
+        self.standingTimer_bodyAngle_horizontalSlider.valueChanged.connect(
+            lambda value: self.standing_timer_body_angle.emit(int(value))
+        )
+
+        self.multipleCams_delay_horizontalSlider.setValue(multicam_delay * 1000)
+        self.multicam_delay_label.setText(f"{multicam_delay}")
+
+        hip_angle, body_angle = self._tracking_movements.get(Util.SIT_TO_STAND).get_thresh()
+        self.sitToStand_hipAngle_horizontalSlider.setValue(hip_angle)
+        self.sitToStand_hip_label.setText(f"{hip_angle}")
+        self.sitToStand_bodyAngle_horizontalSlider.setValue(body_angle)
+        self.sitToStand_body_label.setText(f"{body_angle}, {Util.angle_to_gradient(body_angle)}")
+
+        elbow_angle, shoulder_angle = self._tracking_movements.get(Util.RIGHT_ARM_REACH).get_thresh()
+        self.rightArmReach_elbowAngle_horizontalSlider.setValue(elbow_angle)
+        self.right_elbow_label.setText(f"{elbow_angle}")
+        self.rightArmReach_shoulderAngle_horizontalSlider.setValue(shoulder_angle)
+        self.right_shoulder_label.setText(f"{shoulder_angle}")
+
+        elbow_angle, shoulder_angle = self._tracking_movements.get(Util.LEFT_ARM_REACH).get_thresh()
+        self.leftArmReach_elbowAngle_horizontalSlider.setValue(elbow_angle)
+        self.left_elbow_label.setText(f"{elbow_angle}")
+        self.leftArmReach_shoulderAngle_horizontalSlider.setValue(shoulder_angle)
+        self.left_shoulder_label.setText(f"{shoulder_angle}")
+
+        knee_angle, foot_angle, sensitivity = self._tracking_movements.get(Util.RIGHT_STEPS).get_thresh()
+        self.stepsTracking_sideView_kneeAngle_horizontalSlider.setValue(knee_angle)
+        self.steps_side_knee_label.setText(f"{knee_angle}")
+        self.stepsTracking_sideView_footAngle_horizontalSlider.setValue(foot_angle)
+        self.steps_side_foot_label.setText(f"{foot_angle}, {Util.angle_to_gradient(foot_angle)}")
+        self.stepCounter_frontOrRear_sensitivity_horizontalSlider.setValue(sensitivity)
+        self.steps_front_rear_sensitivity_label.setText(f"{sensitivity}")
+
+        hip_angle, body_angle = self._tracking_movements.get(Util.STANDING_TIME).get_thresh()
+        self.standingTimer_hipAngle_horizontalSlider.setValue(hip_angle)
+        self.standing_hip_label.setText(f"{hip_angle}")
+        self.standingTimer_bodyAngle_horizontalSlider.setValue(body_angle)
+        self.standing_body_label.setText(f"{body_angle}, {Util.angle_to_gradient(body_angle)}")
