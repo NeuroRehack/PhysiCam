@@ -17,7 +17,7 @@ from thread import CameraThread
 
 __author__ = "Mike Smith"
 __email__ = "dongming.shi@uqconnect.edu.au"
-__date__ = "19/12/2023"
+__date__ = "12/04/2023"
 __status__ = "Prototype"
 __credits__ = ["Agnethe Kaasen", "Live Myklebust", "Amber Spurway"]
 

@@ -9,7 +9,7 @@ Sets the layout of the graphical user interface. Does not handle any logic or us
 
 This module is auto-generated from the "ui/gui.ui" file. The following command can be used to generate this module:
 
-`pyuic5 -x ui/gui.ui -o gui.py`
+Example: `pyuic5 -x app_gui/ui/gui_main.ui -o app_gui/gui_main.py`
 
 ## Module methods:
 

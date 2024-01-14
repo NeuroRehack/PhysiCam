@@ -56,7 +56,9 @@ class Util:
     VIDEO = 0
     WEBCAM = 1
 
+    """ multiple cameras """
     MAX_NUM_CAMERAS = 64
+    MULTI_CAM_DELAY_THRESH = 0.5
 
     """ pre-defined colours (b, g, r) """
     RED = (0, 0, 255)
@@ -74,8 +76,6 @@ class Util:
     SIDE_VIEW = 0
     FRONT_VIEW = 1
     REAR_VIEW = 2
-
-    MULTI_CAM_DELAY_THRESH = 0.5
 
     """ init tuple (used for bounding box) """
     INIT = (0, 0)
