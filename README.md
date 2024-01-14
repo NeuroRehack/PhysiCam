@@ -5,14 +5,14 @@
 
 ## Description & Features
 - A motion tracking application for counting reps during a physiotherapy session.
-- Uses computer webcam by default, able to use an external USB webcam.
-- Tracks motion using the "MediaPipe Pose Estimation" library and counts movements in real-time.
-- Saves recorded session information to a csv file under patient name or ID number.
+- Uses computer webcam by default, able to use an external USB webcam. Supports simultaneous use of multiple cameras connected to host device.
+- Tracks motion using the "MediaPipe Pose Estimation" library and counts movements in real-time. Can be used with Coral Edge TPU (requires Python v3.8, disabled in exe file due to compatibility).
+- Saves recorded session information to a csv file under patient name or ID number. Video recording (disabled by default) can also be enabled.
 - Able to apply motion tracking and counting reps on mp4 videos.
 
 ## Requirements
 - Works on Windows 10 or later
-- Works with Python version 3.10
+- Works with Python version v3.8 or later (Python v3.8 is required if used with Coral Edge TPU)
 
 ## Setup
 
