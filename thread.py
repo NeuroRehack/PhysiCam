@@ -745,7 +745,7 @@ class CameraThread(QtCore.QThread, Config):
         is_steps_enabled = self.steps_tracking_mode in self._modes
 
         self._standing_timer = StandingTimer(is_steps_enabled, debug=False)
-        #self._tracking_movements.update({Util.STANDING_TIME: self._standing_timer})
+        self._tracking_movements.update({Util.STANDING_TIME: self._standing_timer})
 
         self._left_step_tracker = StepTracker(is_steps_enabled, Util.LEFT, debug=False)
         self._tracking_movements.update({Util.LEFT_STEPS: self._left_step_tracker})

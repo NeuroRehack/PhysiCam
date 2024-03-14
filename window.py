@@ -206,6 +206,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             Util.SIT_TO_STAND: 0,
             Util.RIGHT_STEPS: 0,
             Util.LEFT_STEPS: 0,
+            Util.STANDING_TIME: 0,
         }
         self._prev_count_times = self._movement_counts.copy()
             
@@ -358,6 +359,10 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             self._worker_threads[i-1].left_steps.connect(
                 lambda count: self.update_count(self._worker_threads[i-1], Util.LEFT_STEPS, count)
             )
+            self._worker_threads[i-1].standing_timer.connect(
+                lambda count: self.update_count(self._worker_threads[i-1], Util.STANDING_TIME, count)
+            )
+            
 
     def update_count(self, thread, movement, count):
         """
@@ -390,6 +395,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
             self.right_steps_count_label.setText(f"{movement}: {count}")
         elif movement == Util.LEFT_STEPS:
             self.left_steps_count_label.setText(f"{movement}: {count}")
+        elif movement == Util.STANDING_TIME:
+            self.standing_time_label.setText(f"{movement}: {self.format_time(count)}")
+            
 
     def update_start_pushButton(self):
         """
@@ -458,8 +466,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._thresh_window.multicam_delay.connect(self.update_multicam_delay_thresh)
 
         self._main_thread.adjust_thresh(self._thresh_window)
-        for th in self._worker_threads:
-            th.adjust_thresh(self._thresh_window)
+        if self._worker_threads is not None:
+            for th in self._worker_threads:
+                th.adjust_thresh(self._thresh_window)
 
     def update_multicam_delay_thresh(self, value):
         self._multicam_delay_thresh = value / 1000
