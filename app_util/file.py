@@ -184,8 +184,11 @@ class CsvFile(File):
             if self._save_file == True:
                 print("Empty File")
             return False
-        
-        self._max_file_count = max(self._max_file_count, count)
+        try:
+            count = int(count)
+            self._max_file_count = max(self._max_file_count, count)
+        except:
+            pass
 
         """ create a directory to store the saved files """
         if not os.path.exists(self.file_path):

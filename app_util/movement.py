@@ -717,8 +717,8 @@ class StandingTimer(Generic):
             self._non_standing_time += diff_time
 
         self._prev_time = time.time()
-
-        return int(time.time() - self._start_time - self._non_standing_time)
+        self._count = int(time.time() - self._start_time - self._non_standing_time) 
+        return self._count
 
     def get_thresh(self):
         return (

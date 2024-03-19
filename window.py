@@ -43,7 +43,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._num_channels = 0
 
         """ init main thread """
-        self._main_thread = CameraThread(cam_id=0, primary=True)
+        self._main_thread = CameraThread(cam_id=2, primary=True)
         self._main_thread.start()
 
         """ connect back-end signals """
@@ -55,7 +55,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._main_thread.tpu_error.connect(lambda: self.actionCoral_TPU.setChecked(False))
 
         """ set up multiple cameras """
-        self._main_thread.multiple_cams.connect(self.multiple_cams)
+        # self._main_thread.multiple_cams.connect(self.multiple_cams)
 
         """ camera source combo-box signals """
         self._main_thread.camera_source.connect(
@@ -242,7 +242,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
 
             if self._summary_file is not None:
                 self._summary_file.write(
-                    self._main_thread.get_name_id(), self._main_thread.get_filetime(), "summary", ""
+                    self._main_thread.get_name_id(), self._main_thread.get_filetime(), "summary", self._movement_counts
                 )
                 self._summary_file = None
 
