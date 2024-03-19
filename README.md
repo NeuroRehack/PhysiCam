@@ -43,3 +43,7 @@ pyinstaller main.py ^
     --icon="C:\Users\61416\Documents\Uni_5\PhysiCam\app_util\images\icon.png" ^
     --onefile -w
 ```
+
+```
+pyinstaller main.py --add-data=venv\Lib\site-packages\mediapipe\modules:mediapipe/modules --add-data=".\app_util\images\icon.ico":app_util/images/icon.ico --icon=".\app_util\images\icon.ico" --onefile -w
+```
