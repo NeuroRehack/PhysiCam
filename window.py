@@ -43,7 +43,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._num_channels = 0
 
         """ init main thread """
-        self._main_thread = CameraThread(cam_id=2, primary=True)
+        self._main_thread = CameraThread(cam_id=0, primary=True)
         self._main_thread.start()
 
         """ connect back-end signals """
@@ -55,7 +55,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._main_thread.tpu_error.connect(lambda: self.actionCoral_TPU.setChecked(False))
 
         """ set up multiple cameras """
-        # self._main_thread.multiple_cams.connect(self.multiple_cams)
+        self._main_thread.multiple_cams.connect(self.multiple_cams)
 
         """ camera source combo-box signals """
         self._main_thread.camera_source.connect(
@@ -64,7 +64,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QWidget, gui_main.Ui_MainWindo
         self._main_thread.refresh_source.connect(
             lambda: self.source_comboBox.clear()
         )
-        self._curr_primary = 0
+        self._curr_primary = 0 # 0 is main thread, 1+ is worker threads
         self._worker_threads = None
         self.source_comboBox.currentIndexChanged.connect(
             #lambda text: self._main_thread.start_video_capture(source=int(text))

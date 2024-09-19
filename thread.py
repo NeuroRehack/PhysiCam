@@ -68,6 +68,8 @@ class CameraThread(QtCore.QThread, Config):
     and counting reps
 
     """
+    
+    """ signals to be emitted to the main window thread """
     image = QtCore.pyqtSignal(QtGui.QImage)
     frame_rate = QtCore.pyqtSignal(float)
     session_time = QtCore.pyqtSignal(int)
